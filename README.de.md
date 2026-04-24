@@ -28,6 +28,9 @@ Das Projekt ist für typische Windows-, macOS- und Linux-Umgebungen gedacht. Rea
 - `scripts/probe-gpt55-authenticity.ps1`: Windows-PowerShell-Wrapper für die fokussierte Probe.
 - `compare-app-vs-cli-gpt55.sh`: Optionaler Vergleich zwischen App- und CLI-Codex-Route.
 - `compare-app-vs-cli-gpt55.ps1`: Windows-PowerShell-Wrapper für den App/CLI-Vergleich.
+- `docs/report-schema.md`: JSON-Berichtsfeldvertrag und Hinweise für Consumer.
+- `docs/model-integrity-methodology.md`: Erklärung der Modellintegritätskontrollen und ihrer Grenzen.
+- `examples/reports/`: Bereinigte Beispielberichte für schnelle Prüfung und nachgelagerte Integration.
 - `.env.example`: Sichere Vorlage mit Platzhaltern.
 - `reports/`: Lokales Ausgabeverzeichnis, von Git ignoriert.
 
@@ -268,6 +271,10 @@ Jeder JSON-Bericht enthält erklärende Felder:
 - `failed_controls`: fehlgeschlagene oder zu prüfende Kontrollen.
 - `recommendations`: nächste Schritte basierend auf der beobachteten Evidence.
 
+Siehe `docs/report-schema.md` für den JSON-Feldvertrag und `examples/reports/` für bereinigte Beispielberichte.
+
+Siehe `docs/model-integrity-methodology.md` für die Begründung von positiven Kontrollen, negativen Kontrollen, Model Echo, Usage Visibility und Baseline Similarity.
+
 ## Secret Scan
 
 Vor dem Committen oder Teilen ausführen:
@@ -308,7 +315,16 @@ Dieser Test prüft, dass Serverfehler, fehlerhaftes JSON, fehlende Usage-Daten, 
 - `suspicious_or_unstable`: Wichtige Prüfungen sind fehlgeschlagen oder die Route wirkt instabil.
 - `inconclusive`: Die Evidenz reicht nicht für eine stärkere Aussage.
 
-Diese Prüfungen liefern Verhaltenshinweise, keinen kryptografischen Identitätsnachweis des Backends. Für Abrechnung oder Beschaffung sollten zusätzlich Provider-Logs, Abrechnungsexporte und unabhängige Betriebsprüfungen verwendet werden.
+Nutze `verdict`, `score`, `warnings` und `failed_controls` zusammen. Ein hoher Score bedeutet, dass das Endpunktverhalten in diesem Lauf zu den implementierten Kontrollen passte; es ist kein kryptografischer Identitätsnachweis des Backends.
+
+Prüfsignale können mehrere Ursachen haben:
+
+- Fehlende `usage`-Daten können bedeuten, dass das Relay Metadaten verbirgt; das beweist nicht automatisch ein falsches Modell.
+- Model-Echo-Mismatches können durch Proxy-Normalisierung, Aliase, Fallback-Routing oder eine falsche Route entstehen.
+- Timeouts, fehlerhaftes JSON oder Serverfehler sind Zuverlässigkeitssignale und sollten vor starken Schlussfolgerungen meist erneut getestet werden.
+- Hohe Ähnlichkeit zu einem Basismodell ist Verhaltenshinweis und sollte zusammen mit negativen Kontrollen und HTTP-Evidence bewertet werden.
+
+Für Abrechnung, Beschaffung oder Incident Response sollten zusätzlich Provider-Logs, Abrechnungsexporte, Vergleiche mit offiziellen Endpunkten und unabhängige Betriebsprüfungen verwendet werden.
 
 ## Fehlerbehebung
 
