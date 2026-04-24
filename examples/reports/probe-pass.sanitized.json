@@ -1,0 +1,50 @@
+{
+  "timestamp": "2026-04-24T00:00:00Z",
+  "report_type": "gpt55_authenticity_probe",
+  "model": "gpt-5.5",
+  "relay_base_url": "<redacted-endpoint>",
+  "responses_url": "<redacted-endpoint>",
+  "official_base_url": "<redacted-endpoint>",
+  "sanitized": true,
+  "score": 88,
+  "verdict": "likely_real_gpt55_route",
+  "checks": {
+    "valid_http_ok": true,
+    "valid_model_match": true,
+    "valid_id_shape": true,
+    "invalid_param_ok": true,
+    "unsupported_model_rejected": true,
+    "usage_visible": true
+  },
+  "evidence": [
+    {
+      "level": "info",
+      "control": "valid_http",
+      "message": "Valid probe request returned HTTP 200.",
+      "value": "200"
+    },
+    {
+      "level": "info",
+      "control": "negative_control",
+      "message": "Invalid reasoning effort was rejected with a validation-style error.",
+      "value": "400"
+    },
+    {
+      "level": "info",
+      "control": "unsupported_model",
+      "message": "Unsupported model id was rejected.",
+      "value": "404"
+    },
+    {
+      "level": "info",
+      "control": "usage_visibility",
+      "message": "Usage metadata was visible in the valid probe response.",
+      "value": "present"
+    }
+  ],
+  "warnings": [],
+  "failed_controls": [],
+  "recommendations": [
+    "Use provider logs and billing evidence for high-stakes identity or procurement decisions."
+  ]
+}

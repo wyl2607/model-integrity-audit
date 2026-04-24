@@ -1,0 +1,69 @@
+{
+  "timestamp": "2026-04-24T00:00:00Z",
+  "report_type": "api_quality_model_integrity",
+  "mode": "quick",
+  "endpoint": "<redacted-endpoint>",
+  "sanitized": true,
+  "target_seconds": 30,
+  "models": [
+    "gpt-5.5",
+    "gpt-5.4",
+    "gpt-5.4-mini"
+  ],
+  "score": 61,
+  "verdict": "suspicious_or_unstable",
+  "results": [
+    {
+      "model": "gpt-5.5",
+      "http_code": 200,
+      "latency_ms": 1432,
+      "model_echo": false,
+      "usage_visible": false
+    },
+    {
+      "model": "gpt-5.4",
+      "http_code": 200,
+      "latency_ms": 978,
+      "model_echo": true,
+      "usage_visible": true
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "http_code": 500,
+      "latency_ms": 352,
+      "model_echo": false,
+      "usage_visible": false
+    }
+  ],
+  "evidence": [
+    {
+      "level": "warning",
+      "control": "model_echo",
+      "message": "At least one successful response did not echo the requested model.",
+      "value": "1 mismatch"
+    },
+    {
+      "level": "warning",
+      "control": "usage_visibility",
+      "message": "Usage metadata was missing in a successful response.",
+      "value": "1 missing"
+    },
+    {
+      "level": "error",
+      "control": "valid_http",
+      "message": "One quick-mode request returned a server error.",
+      "value": "HTTP 500"
+    }
+  ],
+  "warnings": [
+    "At least one successful response did not echo the requested model.",
+    "Usage metadata was missing in a successful response."
+  ],
+  "failed_controls": [
+    "valid_http"
+  ],
+  "recommendations": [
+    "Rerun the quick audit to distinguish transient endpoint instability from persistent routing issues.",
+    "Review relay configuration if model echo mismatches persist."
+  ]
+}
