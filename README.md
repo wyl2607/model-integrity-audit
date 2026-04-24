@@ -261,6 +261,13 @@ Reports are written locally:
 
 Reports are sanitized by design, but you should still review them before sharing.
 
+Each JSON report includes explainability fields:
+
+- `evidence`: human-readable checks with levels, messages, and supporting values.
+- `warnings`: warning messages extracted from evidence.
+- `failed_controls`: controls that failed or need review.
+- `recommendations`: next steps based on the observed evidence.
+
 ## Secret Scan
 
 Before committing or sharing results, run:

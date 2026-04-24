@@ -343,6 +343,32 @@ if [[ "$MODE" == "quick" ]]; then
     verdict="suspicious_or_unstable"
   fi
 
+  evidence_json="$(jq -nc \
+    --argjson success_200_count "$success_200_count" \
+    --argjson echo_ok_count "$echo_ok_count" \
+    --argjson bad_model_rejected "$( [[ "$bad_model_rejected" -eq 1 ]] && echo true || echo false )" \
+    --argjson bad_param_enum_ok "$( [[ "$bad_param_enum_ok" -eq 1 ]] && echo true || echo false )" \
+    --argjson looks_like_mini "$looks_like_mini" \
+    --arg mini_similarity_note "$mini_similarity_note" \
+    --arg confidence "$confidence" \
+    --arg verdict "$verdict" \
+    '[
+      {level:"info", check:"successful_model_calls", message:("Successful model calls: " + ($success_200_count|tostring)), value:$success_200_count},
+      {level:"info", check:"model_echo", message:("Model echo matched for " + ($echo_ok_count|tostring) + " calls"), value:$echo_ok_count},
+      {level:(if $bad_model_rejected then "info" else "warning" end), check:"invalid_model_rejected", message:(if $bad_model_rejected then "Invalid model negative control was rejected" else "Invalid model negative control was not rejected" end), passed:$bad_model_rejected},
+      {level:(if $bad_param_enum_ok then "info" else "warning" end), check:"invalid_reasoning_param", message:(if $bad_param_enum_ok then "Invalid reasoning.effort negative control returned a validation-style error" else "Invalid reasoning.effort negative control did not return the expected validation-style error" end), passed:$bad_param_enum_ok},
+      {level:(if $looks_like_mini then "warning" else "info" end), check:"baseline_similarity", message:$mini_similarity_note, looks_like_baseline_mini:$looks_like_mini},
+      {level:(if $confidence == "high" then "info" elif $confidence == "medium" then "warning" else "warning" end), check:"overall_verdict", message:("Verdict: " + $verdict + " (" + $confidence + " confidence)"), verdict:$verdict, confidence:$confidence}
+    ]')"
+
+  warnings_json="$(jq -c '[.[] | select(.level == "warning") | .message]' <<< "$evidence_json")"
+  failed_controls_json="$(jq -c '[.[] | select((.passed? == false) or (.looks_like_baseline_mini? == true)) | .check]' <<< "$evidence_json")"
+  recommendations_json="$(jq -nc --arg confidence "$confidence" --argjson failed "$failed_controls_json" '
+    [
+      (if ($failed | length) > 0 then "Review failed controls and rerun with --mode full for stronger evidence." else empty end),
+      (if $confidence != "high" then "Increase samples and compare against an official endpoint or billing/provider logs." else "For high-stakes decisions, corroborate this behavioral report with provider logs and billing exports." end)
+    ]')"
+
   jq -n \
     --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     --arg mode "$MODE" \
@@ -359,6 +385,10 @@ if [[ "$MODE" == "quick" ]]; then
     --arg mini_similarity_note "$mini_similarity_note" \
     --argjson quick_rows "$quick_rows" \
     --argjson cost_proxy "$cost_proxy" \
+    --argjson evidence "$evidence_json" \
+    --argjson warnings "$warnings_json" \
+    --argjson failed_controls "$failed_controls_json" \
+    --argjson recommendations "$recommendations_json" \
     '{
       timestamp:$timestamp,
       report_type:"api_quality_and_model_integrity",
@@ -383,7 +413,11 @@ if [[ "$MODE" == "quick" ]]; then
           note:$mini_similarity_note
         },
         per_model:$quick_rows,
-        token_cost_proxy:$cost_proxy
+        token_cost_proxy:$cost_proxy,
+        evidence:$evidence,
+        warnings:$warnings,
+        failed_controls:$failed_controls,
+        recommendations:$recommendations
       }
     }' > "$JSON_OUT"
 
@@ -409,6 +443,24 @@ if [[ "$MODE" == "quick" ]]; then
       | map(
           "| `" + .model + "` | " + .http_code + " | " + (.latency_ms|tostring) + " | " + (.output_tokens|tostring) + " | " + (.reasoning_tokens|tostring) + " | " + (.total_tokens|tostring) + " | " + (.model_echo_ok|tostring) + " |"
         )
+    )
+    + [
+      "",
+      "## Evidence",
+      ""
+    ]
+    + (
+      $root.quick_assessment.evidence
+      | map("- [" + .level + "] `" + .check + "`: " + .message)
+    )
+    + [
+      "",
+      "## Recommendations",
+      ""
+    ]
+    + (
+      $root.quick_assessment.recommendations
+      | map("- " + .)
     )
     + [
       "",
@@ -548,6 +600,23 @@ else
         }}
     )' <<< "$rows")"
 
+  full_evidence_json="$(jq -nc \
+    --argjson model_results "$rows_with_similarity" \
+    --argjson gpt55_probe "$(cat "$probe_json_tmp")" \
+    '[
+      {level:"info", check:"gpt55_probe_verdict", message:("GPT-5.5 probe verdict: " + $gpt55_probe.scoring.verdict + " (" + ($gpt55_probe.scoring.score|tostring) + "/100)"), verdict:$gpt55_probe.scoring.verdict, score:$gpt55_probe.scoring.score},
+      {level:(if ([ $model_results[] | select(.success_runs < .total_runs) ] | length) == 0 then "info" else "warning" end), check:"model_success_rates", message:("Models with failed runs: " + (([ $model_results[] | select(.success_runs < .total_runs) ] | length)|tostring)), failed_model_count:([ $model_results[] | select(.success_runs < .total_runs) ] | length)},
+      {level:(if ([ $model_results[] | select(.invalid_param_enum_check != 1) ] | length) == 0 then "info" else "warning" end), check:"invalid_reasoning_param", message:("Models failing invalid reasoning.effort control: " + (([ $model_results[] | select(.invalid_param_enum_check != 1) ] | length)|tostring)), failed_model_count:([ $model_results[] | select(.invalid_param_enum_check != 1) ] | length)},
+      {level:(if ([ $model_results[] | select(.baseline_similarity.mini_like_similarity == true and .model != .baseline_similarity.baseline_model) ] | length) == 0 then "info" else "warning" end), check:"baseline_similarity", message:("Non-baseline models with mini-like fingerprint: " + (([ $model_results[] | select(.baseline_similarity.mini_like_similarity == true and .model != .baseline_similarity.baseline_model) ] | length)|tostring)), mini_like_model_count:([ $model_results[] | select(.baseline_similarity.mini_like_similarity == true and .model != .baseline_similarity.baseline_model) ] | length)}
+    ]')"
+  full_warnings_json="$(jq -c '[.[] | select(.level == "warning") | .message]' <<< "$full_evidence_json")"
+  full_failed_controls_json="$(jq -c '[.[] | select((.failed_model_count? // 0) > 0 or (.mini_like_model_count? // 0) > 0) | .check]' <<< "$full_evidence_json")"
+  full_recommendations_json="$(jq -nc --argjson failed "$full_failed_controls_json" '
+    [
+      (if ($failed | length) > 0 then "Inspect the warning controls and compare against independent provider logs." else "Full audit controls passed in this run; preserve reports with billing/provider evidence for high-stakes decisions." end),
+      "Increase --samples for stronger stability evidence when latency and cost allow."
+    ]')"
+
   jq -n \
     --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     --arg mode "$MODE" \
@@ -556,6 +625,10 @@ else
     --arg prompt "$PROMPT" \
     --argjson gpt55_probe "$(cat "$probe_json_tmp")" \
     --argjson model_results "$rows_with_similarity" \
+    --argjson evidence "$full_evidence_json" \
+    --argjson warnings "$full_warnings_json" \
+    --argjson failed_controls "$full_failed_controls_json" \
+    --argjson recommendations "$full_recommendations_json" \
     '{
       timestamp:$timestamp,
       report_type:"api_quality_and_model_integrity",
@@ -569,7 +642,11 @@ else
         prompt:$prompt
       },
       gpt55_authenticity_probe:$gpt55_probe,
-      model_results:$model_results
+      model_results:$model_results,
+      evidence:$evidence,
+      warnings:$warnings,
+      failed_controls:$failed_controls,
+      recommendations:$recommendations
     }' > "$JSON_OUT"
 
   jq -r '
@@ -598,6 +675,24 @@ else
           (.reasoning_to_output_ratio|tostring) + " | " +
           (if .baseline_similarity.mini_like_similarity then "yes" else "no" end) + " |"
         )
+    )
+    + [
+      "",
+      "## Evidence",
+      ""
+    ]
+    + (
+      $root.evidence
+      | map("- [" + .level + "] `" + .check + "`: " + .message)
+    )
+    + [
+      "",
+      "## Recommendations",
+      ""
+    ]
+    + (
+      $root.recommendations
+      | map("- " + .)
     )
     + [
       "",

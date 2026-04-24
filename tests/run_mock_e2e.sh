@@ -64,6 +64,8 @@ jq -e '.target.endpoint == "<redacted-endpoint>"' "$quick_json" >/dev/null
 jq -e '.quick_assessment.controls.invalid_model_rejected == true' "$quick_json" >/dev/null
 jq -e '.quick_assessment.controls.invalid_reasoning_param_checked == true' "$quick_json" >/dev/null
 jq -e '[.quick_assessment.per_model[] | select(.http_code == "200" and .model_echo_ok == true)] | length >= 3' "$quick_json" >/dev/null
+jq -e '.quick_assessment.evidence | length >= 4' "$quick_json" >/dev/null
+jq -e '.quick_assessment.recommendations | length >= 1' "$quick_json" >/dev/null
 
 probe_json="$OUT_DIR/probe.json"
 bash "$ROOT/scripts/probe-gpt55-authenticity.sh" \
@@ -79,5 +81,7 @@ jq -e '.relay.responses_url == "<redacted-endpoint>"' "$probe_json" >/dev/null
 jq -e '.checks.valid_http_ok == true' "$probe_json" >/dev/null
 jq -e '.checks.invalid_param_ok == true' "$probe_json" >/dev/null
 jq -e '.checks.unsupported_model_rejected == true' "$probe_json" >/dev/null
+jq -e '.evidence | length >= 4' "$probe_json" >/dev/null
+jq -e '.recommendations | length >= 1' "$probe_json" >/dev/null
 
 echo "mock-e2e: ok"

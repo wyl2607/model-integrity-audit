@@ -261,6 +261,13 @@ Berichte werden lokal geschrieben:
 
 Berichte sind standardmäßig bereinigt, sollten vor dem Teilen aber trotzdem geprüft werden.
 
+Jeder JSON-Bericht enthält erklärende Felder:
+
+- `evidence`: menschenlesbare Prüfungen mit Level, Nachricht und unterstützenden Werten.
+- `warnings`: aus der Evidence extrahierte Warnungen.
+- `failed_controls`: fehlgeschlagene oder zu prüfende Kontrollen.
+- `recommendations`: nächste Schritte basierend auf der beobachteten Evidence.
+
 ## Secret Scan
 
 Vor dem Committen oder Teilen ausführen:
