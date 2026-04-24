@@ -7,13 +7,38 @@ mkdir -p "$OUT_DIR"
 TS="$(date -u +%Y%m%dT%H%M%SZ)"
 OUT_JSON="$OUT_DIR/app-vs-cli-gpt55-${TS}.json"
 OUT_MD="$OUT_DIR/app-vs-cli-gpt55-${TS}.md"
+TMP_FILES=()
+
+cleanup() {
+  if [[ "${#TMP_FILES[@]}" -gt 0 ]]; then
+    rm -f "${TMP_FILES[@]}"
+  fi
+}
+trap cleanup EXIT
+
+make_tmp() {
+  local file
+  file="$(mktemp)"
+  TMP_FILES+=("$file")
+  printf '%s\n' "$file"
+}
+
+drop_tmp() {
+  local file="$1"
+  local kept=()
+  rm -f "$file"
+  for item in "${TMP_FILES[@]}"; do
+    [[ "$item" != "$file" ]] && kept+=("$item")
+  done
+  TMP_FILES=("${kept[@]}")
+}
 
 run_route() {
   local route="$1"
   local codex_home="$2"
   local json_file msg_file start end elapsed rc
-  json_file="$(mktemp)"
-  msg_file="$(mktemp)"
+  json_file="$(make_tmp)"
+  msg_file="$(make_tmp)"
   start=$(perl -MTime::HiRes=time -e 'printf("%.0f", time()*1000)')
   set +e
   CODEX_HOME="$codex_home" codex exec \
@@ -50,7 +75,8 @@ run_route() {
       logs_tail_crlf:$logs_tail
     }'
 
-  rm -f "$json_file" "$msg_file"
+  drop_tmp "$json_file"
+  drop_tmp "$msg_file"
 }
 
 app_row="$(run_route "app" "$HOME/.codex-desktop")"

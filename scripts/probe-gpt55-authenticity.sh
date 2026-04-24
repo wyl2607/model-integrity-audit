@@ -83,6 +83,16 @@ require_cmds() {
   fi
 }
 
+require_arg_value() {
+  local option="$1"
+  local value="${2:-}"
+  if [[ -z "$value" || "$value" == --* ]]; then
+    echo "[error] $option requires a value" >&2
+    usage
+    exit 1
+  fi
+}
+
 now_ms() {
   perl -MTime::HiRes=time -e 'printf("%.0f\n", time()*1000)'
 }
@@ -155,18 +165,18 @@ sanitize_url() {
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --model) MODEL="$2"; shift 2 ;;
-    --samples) SAMPLES="$2"; shift 2 ;;
-    --reasoning-effort) REASONING_EFFORT="$2"; shift 2 ;;
-    --config) CONFIG_FILE="$2"; shift 2 ;;
-    --relay-base-url) RELAY_BASE_URL="$2"; shift 2 ;;
-    --relay-api-key) RELAY_API_KEY="$2"; shift 2 ;;
-    --openai-base-url) OPENAI_BASE_URL="$2"; shift 2 ;;
-    --openai-api-key) OPENAI_API_KEY="$2"; shift 2 ;;
-    --out) OUT_FILE="$2"; shift 2 ;;
-    --connect-timeout) CURL_CONNECT_TIMEOUT="$2"; shift 2 ;;
-    --max-time) CURL_MAX_TIME="$2"; shift 2 ;;
-    --retries) CURL_RETRIES="$2"; shift 2 ;;
+    --model) require_arg_value "$1" "${2:-}"; MODEL="$2"; shift 2 ;;
+    --samples) require_arg_value "$1" "${2:-}"; SAMPLES="$2"; shift 2 ;;
+    --reasoning-effort) require_arg_value "$1" "${2:-}"; REASONING_EFFORT="$2"; shift 2 ;;
+    --config) require_arg_value "$1" "${2:-}"; CONFIG_FILE="$2"; shift 2 ;;
+    --relay-base-url) require_arg_value "$1" "${2:-}"; RELAY_BASE_URL="$2"; shift 2 ;;
+    --relay-api-key) require_arg_value "$1" "${2:-}"; RELAY_API_KEY="$2"; shift 2 ;;
+    --openai-base-url) require_arg_value "$1" "${2:-}"; OPENAI_BASE_URL="$2"; shift 2 ;;
+    --openai-api-key) require_arg_value "$1" "${2:-}"; OPENAI_API_KEY="$2"; shift 2 ;;
+    --out) require_arg_value "$1" "${2:-}"; OUT_FILE="$2"; shift 2 ;;
+    --connect-timeout) require_arg_value "$1" "${2:-}"; CURL_CONNECT_TIMEOUT="$2"; shift 2 ;;
+    --max-time) require_arg_value "$1" "${2:-}"; CURL_MAX_TIME="$2"; shift 2 ;;
+    --retries) require_arg_value "$1" "${2:-}"; CURL_RETRIES="$2"; shift 2 ;;
     --show-endpoint) REDACT_ENDPOINT=0; shift ;;
     -h|--help) usage; exit 0 ;;
     *)

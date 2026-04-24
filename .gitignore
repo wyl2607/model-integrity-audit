@@ -3,6 +3,7 @@ reports/
 .env.*
 !.env.example
 /tmp/
+__pycache__/
 *.log
 *.tmp
 *.swp
