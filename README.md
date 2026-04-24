@@ -29,6 +29,7 @@ The project is designed for common Windows, macOS, and Linux environments. It ne
 - `compare-app-vs-cli-gpt55.sh`: Optional App vs CLI Codex route comparison.
 - `compare-app-vs-cli-gpt55.ps1`: Windows PowerShell wrapper for App vs CLI comparison.
 - `docs/report-schema.md`: JSON report field contract and consumer guidance.
+- `docs/model-integrity-methodology.md`: Explanation of model integrity controls and limitations.
 - `examples/reports/`: Sanitized example reports for quick review and downstream integration.
 - `.env.example`: Safe placeholder environment template.
 - `reports/`: Local output directory, ignored by Git.
@@ -271,6 +272,8 @@ Each JSON report includes explainability fields:
 - `recommendations`: next steps based on the observed evidence.
 
 See `docs/report-schema.md` for the JSON field contract and `examples/reports/` for sanitized report examples.
+
+See `docs/model-integrity-methodology.md` for the reasoning behind positive controls, negative controls, model echo, usage visibility, and baseline similarity.
 
 ## Secret Scan
 
