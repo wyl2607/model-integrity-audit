@@ -22,6 +22,14 @@ cd model-integrity-audit
 chmod +x *.sh scripts/*.sh
 ```
 
+Windows Terminal 可直接使用 PowerShell 包装脚本、Git Bash 或 WSL 运行。普通 Windows 环境推荐先安装 Git for Windows、ripgrep 和 jq，然后在 PowerShell 中运行：
+
+```powershell
+.\check-api-quality-and-model-integrity.ps1 --mode quick
+```
+
+PowerShell 包装脚本会检查常见依赖并调用对应 Bash 脚本。底层依赖命令：`bash`、`curl`、`jq`、`rg`、`awk`、`sed`、`perl`。
+
 配置环境变量（推荐）：
 
 ```bash
@@ -36,6 +44,12 @@ set +a
 
 ```bash
 ./check-api-quality-and-model-integrity.sh --mode quick
+```
+
+PowerShell 等价写法：
+
+```powershell
+.\check-api-quality-and-model-integrity.ps1 --mode quick
 ```
 
 运行 full：

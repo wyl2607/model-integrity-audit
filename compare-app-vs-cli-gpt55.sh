@@ -28,7 +28,7 @@ run_route() {
 
   # Try to infer model + usage from event stream when present
   model="$(rg -o '"model":"[^"]+"' "$json_file" | head -n1 | sed -E 's/.*"model":"([^"]+)".*/\1/' || true)"
-  usage_line="$(rg -o '"usage":\\{[^\\}]+\\}' "$json_file" | tail -n1 || true)"
+  usage_line="$(rg -o '"usage":\{[^}]+\}' "$json_file" | tail -n1 || true)"
 
   jq -nc \
     --arg route "$route" \
