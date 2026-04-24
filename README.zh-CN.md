@@ -261,6 +261,13 @@ macOS 或 Linux：
 
 报告默认去敏感化，但公开前仍建议人工检查。
 
+每个 JSON 报告都包含解释性字段：
+
+- `evidence`：带 level、message 和支撑数据的人类可读检查结果。
+- `warnings`：从 evidence 中提取的警告信息。
+- `failed_controls`：失败或需要复查的控制项。
+- `recommendations`：根据当前证据生成的下一步建议。
+
 ## 敏感信息扫描
 
 提交或分享结果前运行：

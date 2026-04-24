@@ -384,6 +384,37 @@ if [[ "$valid_http_ok" -eq 1 && "$valid_model_match" -eq 1 && "$invalid_param_ok
   fi
 fi
 
+evidence_json="$(jq -nc \
+  --argjson valid_http_ok "$(to_bool "$valid_http_ok")" \
+  --argjson valid_model_match "$(to_bool "$valid_model_match")" \
+  --argjson valid_id_shape "$(to_bool "$valid_id_shape")" \
+  --argjson invalid_param_ok "$(to_bool "$invalid_param_ok")" \
+  --argjson unsupported_model_rejected "$(to_bool "$unsupported_model_rejected")" \
+  --argjson sample_success "$sample_success" \
+  --argjson samples "$SAMPLES" \
+  --argjson sample_ratio "$sample_ratio" \
+  --argjson reasoning_seen "$reasoning_seen" \
+  --argjson reasoning_ratio "$reasoning_ratio" \
+  --arg confidence "$confidence" \
+  --arg verdict "$verdict" \
+  '[
+    {level:(if $valid_http_ok then "info" else "warning" end), check:"valid_http", message:(if $valid_http_ok then "Valid request returned HTTP 200" else "Valid request did not return HTTP 200" end), passed:$valid_http_ok},
+    {level:(if $valid_model_match then "info" else "warning" end), check:"model_echo", message:(if $valid_model_match then "Response model matched requested model" else "Response model did not match requested model" end), passed:$valid_model_match},
+    {level:(if $valid_id_shape then "info" else "warning" end), check:"response_id_shape", message:(if $valid_id_shape then "Response id has expected resp_ shape" else "Response id did not have expected resp_ shape" end), passed:$valid_id_shape},
+    {level:(if $invalid_param_ok then "info" else "warning" end), check:"invalid_reasoning_param", message:(if $invalid_param_ok then "Invalid reasoning.effort was rejected" else "Invalid reasoning.effort was not rejected as expected" end), passed:$invalid_param_ok},
+    {level:(if $unsupported_model_rejected then "info" else "warning" end), check:"unsupported_model", message:(if $unsupported_model_rejected then "Unsupported model was rejected" else "Unsupported model was not rejected" end), passed:$unsupported_model_rejected},
+    {level:(if $sample_ratio >= 0.80 then "info" else "warning" end), check:"sample_stability", message:("Sample success: " + ($sample_success|tostring) + "/" + ($samples|tostring) + " (ratio " + ($sample_ratio|tostring) + ")"), sample_success:$sample_success, samples:$samples, sample_ratio:$sample_ratio},
+    {level:(if $reasoning_ratio >= 0.70 then "info" else "warning" end), check:"reasoning_usage_visibility", message:("Reasoning usage visible in " + ($reasoning_seen|tostring) + " successful samples (ratio " + ($reasoning_ratio|tostring) + ")"), reasoning_seen:$reasoning_seen, reasoning_ratio:$reasoning_ratio},
+    {level:(if $confidence == "high" then "info" else "warning" end), check:"overall_verdict", message:("Verdict: " + $verdict + " (" + $confidence + " confidence)"), verdict:$verdict, confidence:$confidence}
+  ]')"
+warnings_json="$(jq -c '[.[] | select(.level == "warning") | .message]' <<< "$evidence_json")"
+failed_controls_json="$(jq -c '[.[] | select((.passed? == false) or ((.sample_ratio? // 1) < 0.80) or ((.reasoning_ratio? // 1) < 0.70)) | .check]' <<< "$evidence_json")"
+recommendations_json="$(jq -nc --arg confidence "$confidence" --argjson failed "$failed_controls_json" '
+  [
+    (if ($failed | length) > 0 then "Review warning controls and rerun with more samples or an independent official endpoint." else empty end),
+    (if $confidence != "high" then "Treat this probe as inconclusive until corroborated by provider logs or billing exports." else "For high-stakes decisions, corroborate this behavioral probe with provider logs and billing exports." end)
+  ]')"
+
 jq -n \
   --arg timestamp "$ts" \
   --arg relay_base_url "$SANITIZED_RELAY_BASE_URL" \
@@ -411,6 +442,10 @@ jq -n \
   --argjson official_bad_match "$(to_bool "$official_bad_match")" \
   --argjson official_compare_score "$official_compare_score" \
   --arg official_compare_note "$official_compare_note" \
+  --argjson evidence "$evidence_json" \
+  --argjson warnings "$warnings_json" \
+  --argjson failed_controls "$failed_controls_json" \
+  --argjson recommendations "$recommendations_json" \
   '{
     timestamp: $timestamp,
     probe: "gpt55-authenticity",
@@ -439,6 +474,10 @@ jq -n \
       confidence: $confidence,
       verdict: $verdict
     },
+    evidence: $evidence,
+    warnings: $warnings,
+    failed_controls: $failed_controls,
+    recommendations: $recommendations,
     official_compare: {
       enabled: $official_compare_enabled,
       base_url: $official_base_url,
