@@ -32,6 +32,12 @@ jobs:
       - name: Validate example reports
         run: jq empty examples/reports/*.json
 
+      - name: Check documentation links
+        run: |
+          rg -q 'docs/report-schema\.md' README.md README.zh-CN.md README.de.md
+          rg -q 'docs/model-integrity-methodology\.md' README.md README.zh-CN.md README.de.md
+          rg -q 'examples/reports/' README.md README.zh-CN.md README.de.md
+
       - name: Run mock E2E audit
         run: bash tests/run_mock_e2e.sh
 
