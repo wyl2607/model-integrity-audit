@@ -22,9 +22,14 @@ jobs:
           bash -n compare-app-vs-cli-gpt55.sh
           bash -n scripts/probe-gpt55-authenticity.sh
           bash -n scripts/secret-scan.sh
+          bash -n tests/run_mock_e2e.sh
+          python3 -m py_compile tests/mock_responses_api.py
 
       - name: Run secret scan
         run: bash scripts/secret-scan.sh
+
+      - name: Run mock E2E audit
+        run: bash tests/run_mock_e2e.sh
 
       - name: Check PowerShell wrappers
         shell: pwsh

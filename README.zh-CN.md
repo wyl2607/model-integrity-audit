@@ -277,6 +277,16 @@ Windows PowerShell：
 
 该扫描会检查 tracked 文件中的常见 API key、Bearer token、私有 endpoint 示例、trace ID，以及是否误提交了 `.env` 或 `reports/`。
 
+## 离线完整性测试
+
+仓库内置本地 mock Responses API，CI 和贡献者可以在没有真实 API key、没有真实 endpoint 的情况下测试完整审计流程：
+
+```bash
+./tests/run_mock_e2e.sh
+```
+
+该脚本会启动 `tests/mock_responses_api.py`，针对 `127.0.0.1` 运行 quick audit 和专门探针，验证 endpoint redaction、负向控制，然后清理本地测试服务。
+
 ## 结果解读
 
 - `likely_real_gpt55_route`：该路由通过了当前实现的行为检查。

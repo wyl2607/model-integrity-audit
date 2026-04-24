@@ -2,6 +2,7 @@ reports/
 .env
 .env.*
 !.env.example
+/tmp/
 *.log
 *.tmp
 *.swp
