@@ -1,58 +1,197 @@
-# API 质量与模型真伪审计（Sanitized）
+# Model Integrity Audit
 
-本项目用于对兼容 OpenAI Responses API 的路由做可复跑审计，目标是判断“模型行为是否与声明一致”，并输出不含敏感字段的报告。
+Language: English | [中文](README.zh-CN.md) | [Deutsch](README.de.md)
 
-支持两种模式：
+Model Integrity Audit is a reusable command-line toolkit for testing whether an OpenAI Responses API-compatible endpoint behaves as expected. It runs repeatable API quality checks, model-route integrity probes, negative controls, and model fingerprint comparisons, then writes sanitized JSON and Markdown reports.
 
-- `quick`：10-30 秒快速置信度检查
-- `full`：逐模型深度行为指纹审计
+The project is designed for common Windows, macOS, and Linux environments. It never needs real credentials in the repository. Use environment variables, a local `.env`, or command-line arguments at runtime.
 
-## 项目结构
+## What It Checks
 
-- `check-api-quality-and-model-integrity.sh`：主入口（quick/full）
-- `scripts/probe-gpt55-authenticity.sh`：`gpt-5.5` 深度探针
-- `compare-app-vs-cli-gpt55.sh`：App/CLI 路由对比（可选）
-- `reports/`：输出目录（默认忽略，不提交）
+- Whether the endpoint accepts valid Responses API requests.
+- Whether the returned `model` field matches the requested model.
+- Whether invalid model names are rejected.
+- Whether invalid `reasoning.effort` values are rejected with validation-style errors.
+- Whether `gpt-5.5` looks suspiciously similar to a baseline model by token and behavior fingerprints.
+- Whether App and CLI Codex routes appear to use the same model path, when Codex CLI is available.
 
-## 快速开始
+## Modes
+
+- `quick`: A fast 10-30 second confidence check for common API and model-route issues.
+- `full`: A deeper multi-sample fingerprint audit across one or more models.
+
+## Repository Layout
+
+- `check-api-quality-and-model-integrity.sh`: Main Bash entrypoint for `quick` and `full` audits.
+- `check-api-quality-and-model-integrity.ps1`: Windows PowerShell wrapper for the main audit.
+- `scripts/probe-gpt55-authenticity.sh`: Focused `gpt-5.5` authenticity probe.
+- `scripts/probe-gpt55-authenticity.ps1`: Windows PowerShell wrapper for the focused probe.
+- `compare-app-vs-cli-gpt55.sh`: Optional App vs CLI Codex route comparison.
+- `compare-app-vs-cli-gpt55.ps1`: Windows PowerShell wrapper for App vs CLI comparison.
+- `.env.example`: Safe placeholder environment template.
+- `reports/`: Local output directory, ignored by Git.
+
+## Security Rules
+
+- Do not commit `.env`, API keys, bearer tokens, raw traces, or generated reports.
+- Generated reports are written to `reports/`, which is ignored by Git.
+- The scripts sanitize report output and avoid writing API keys or bearer tokens.
+- Use placeholder values in documentation and examples, such as `https://your-relay.example.com/v1`.
+- If you publish results, review the Markdown and JSON reports first.
+
+## Requirements
+
+Required for the main audit:
+
+- `bash`
+- `curl`
+- `jq`
+- `rg` from ripgrep
+- `awk`
+- `sed`
+- `perl`
+
+Optional:
+
+- `codex` CLI, only for `compare-app-vs-cli-gpt55.*`.
+- An official OpenAI API key, only if you want optional relay-vs-official comparison.
+
+## Install Dependencies
+
+### Windows
+
+Recommended Windows Terminal setup:
+
+1. Install Git for Windows: `https://git-scm.com/download/win`
+2. Install ripgrep and jq with Winget:
+
+```powershell
+winget install BurntSushi.ripgrep.MSVC
+winget install jqlang.jq
+```
+
+3. Reopen Windows Terminal.
+4. Run the PowerShell wrapper from the repository root.
+
+Git for Windows provides `bash`, `curl`, `awk`, `sed`, and `perl` in typical installations. If a wrapper reports a missing command, install that command and reopen the terminal.
+
+### macOS
+
+Install dependencies with Homebrew:
 
 ```bash
-git clone <your-repo-url>
+brew install jq ripgrep
+```
+
+macOS already includes Bash, curl, awk, sed, and perl. You can use the system versions for this project.
+
+### Linux
+
+Debian or Ubuntu:
+
+```bash
+sudo apt update
+sudo apt install -y bash curl jq ripgrep gawk sed perl
+```
+
+Fedora:
+
+```bash
+sudo dnf install -y bash curl jq ripgrep gawk sed perl
+```
+
+Arch Linux:
+
+```bash
+sudo pacman -S --needed bash curl jq ripgrep gawk sed perl
+```
+
+## Clone
+
+```bash
+git clone https://github.com/wyl2607/model-integrity-audit.git
 cd model-integrity-audit
+```
+
+On macOS and Linux, make the scripts executable if needed:
+
+```bash
 chmod +x *.sh scripts/*.sh
 ```
 
-Windows Terminal 可直接使用 PowerShell 包装脚本、Git Bash 或 WSL 运行。普通 Windows 环境推荐先安装 Git for Windows、ripgrep 和 jq，然后在 PowerShell 中运行：
+## Configure Credentials
 
-```powershell
-.\check-api-quality-and-model-integrity.ps1 --mode quick
-```
-
-PowerShell 包装脚本会检查常见依赖并调用对应 Bash 脚本。底层依赖命令：`bash`、`curl`、`jq`、`rg`、`awk`、`sed`、`perl`。
-
-配置环境变量（推荐）：
+The safest approach is to use a local `.env` file copied from `.env.example`:
 
 ```bash
 cp .env.example .env
-# 编辑 .env 后:
+```
+
+Edit `.env` locally:
+
+```bash
+RELAY_BASE_URL="https://your-relay.example.com/v1"
+RELAY_API_KEY="your_relay_api_key"
+```
+
+Load it on macOS or Linux:
+
+```bash
 set -a
 source .env
 set +a
 ```
 
-运行 quick：
+Load it in PowerShell:
 
-```bash
-./check-api-quality-and-model-integrity.sh --mode quick
+```powershell
+$env:RELAY_BASE_URL = "https://your-relay.example.com/v1"
+$env:RELAY_API_KEY = "your_relay_api_key"
 ```
 
-PowerShell 等价写法：
+You can also pass credentials directly at runtime:
+
+```bash
+./check-api-quality-and-model-integrity.sh --relay-base-url "https://your-relay.example.com/v1" --relay-api-key "your_relay_api_key" --mode quick
+```
+
+Avoid putting real values into shell history on shared machines.
+
+## Quick Audit
+
+Windows PowerShell:
 
 ```powershell
 .\check-api-quality-and-model-integrity.ps1 --mode quick
 ```
 
-运行 full：
+Windows PowerShell with explicit values:
+
+```powershell
+.\check-api-quality-and-model-integrity.ps1 --mode quick --relay-base-url "https://your-relay.example.com/v1" --relay-api-key "your_relay_api_key"
+```
+
+macOS or Linux:
+
+```bash
+./check-api-quality-and-model-integrity.sh --mode quick
+```
+
+macOS or Linux with explicit values:
+
+```bash
+./check-api-quality-and-model-integrity.sh --mode quick --relay-base-url "https://your-relay.example.com/v1" --relay-api-key "your_relay_api_key"
+```
+
+## Full Audit
+
+Windows PowerShell:
+
+```powershell
+.\check-api-quality-and-model-integrity.ps1 --mode full --reasoning-effort medium --samples 5 --baseline gpt-5.4-mini --models "gpt-5.5 gpt-5.4 gpt-5.4-mini gpt-5.3-codex gpt-5.2"
+```
+
+macOS or Linux:
 
 ```bash
 ./check-api-quality-and-model-integrity.sh \
@@ -63,18 +202,71 @@ PowerShell 等价写法：
   --models "gpt-5.5 gpt-5.4 gpt-5.4-mini gpt-5.3-codex gpt-5.2"
 ```
 
-## 输出
+## Focused GPT-5.5 Probe
 
-- `reports/api-quality-model-integrity-quick-<timestamp>.json|.md`
-- `reports/api-quality-model-integrity-full-<timestamp>.json|.md`
+Windows PowerShell:
 
-报告默认为去敏感化结果，不包含 API Key、Bearer Token、trace_id。
+```powershell
+.\scripts\probe-gpt55-authenticity.ps1 --model gpt-5.5 --samples 6 --reasoning-effort medium
+```
 
-## 说明
+macOS or Linux:
 
-- 该审计是行为证据，不是后端身份的加密学证明。
-- 若用于成本结算判断，请结合实际账单导出做交叉核对。
+```bash
+./scripts/probe-gpt55-authenticity.sh --model gpt-5.5 --samples 6 --reasoning-effort medium
+```
+
+Optional official API comparison:
+
+```bash
+OFFICIAL_OPENAI_API_KEY="your_official_openai_api_key" ./scripts/probe-gpt55-authenticity.sh --model gpt-5.5
+```
+
+## App vs CLI Route Comparison
+
+This optional script requires the Codex CLI and local Codex configuration.
+
+Windows PowerShell:
+
+```powershell
+.\compare-app-vs-cli-gpt55.ps1
+```
+
+macOS or Linux:
+
+```bash
+./compare-app-vs-cli-gpt55.sh
+```
+
+## Output
+
+Reports are written locally:
+
+- `reports/api-quality-model-integrity-quick-<timestamp>.json`
+- `reports/api-quality-model-integrity-quick-<timestamp>.md`
+- `reports/api-quality-model-integrity-full-<timestamp>.json`
+- `reports/api-quality-model-integrity-full-<timestamp>.md`
+- `reports/app-vs-cli-gpt55-<timestamp>.json`
+- `reports/app-vs-cli-gpt55-<timestamp>.md`
+
+Reports are sanitized by design, but you should still review them before sharing.
+
+## Interpreting Results
+
+- `likely_real_gpt55_route`: The route passed the implemented behavioral checks.
+- `suspicious_or_unstable`: The route failed important checks or looked unstable.
+- `inconclusive`: There was not enough evidence to make a stronger call.
+
+These checks are behavioral evidence, not cryptographic proof of backend identity. For billing or procurement decisions, combine the report with provider logs, billing exports, and independent operational checks.
+
+## Troubleshooting
+
+- `missing command: jq`: Install `jq` and reopen the terminal.
+- `missing command: rg`: Install ripgrep and reopen the terminal.
+- `relay url/key empty`: Set `RELAY_BASE_URL` and `RELAY_API_KEY`, or pass `--relay-base-url` and `--relay-api-key`.
+- PowerShell blocks script execution: run with `pwsh -NoProfile -ExecutionPolicy Bypass -File .\check-api-quality-and-model-integrity.ps1 --mode quick`.
+- Bash reports `$'\r'` or syntax errors: ensure `.sh` files use LF line endings. The repository includes `.gitattributes` to enforce this.
 
 ## License
 
-MIT（见 `LICENSE`）。
+MIT. See [LICENSE](LICENSE).

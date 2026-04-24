@@ -1,0 +1,272 @@
+# Modellintegritätsaudit
+
+Sprache: [English](README.md) | [中文](README.zh-CN.md) | Deutsch
+
+Model Integrity Audit ist ein wiederverwendbares Kommandozeilen-Toolkit zum Prüfen, ob ein mit der OpenAI Responses API kompatibler Endpunkt wie erwartet funktioniert. Es führt reproduzierbare API-Qualitätsprüfungen, Modellrouten-Integritätsproben, negative Kontrollen und Verhaltens-Fingerprinting aus und schreibt bereinigte JSON- und Markdown-Berichte.
+
+Das Projekt ist für typische Windows-, macOS- und Linux-Umgebungen gedacht. Reale Zugangsdaten müssen nicht im Repository gespeichert werden. Verwende Umgebungsvariablen, eine lokale `.env`-Datei oder Laufzeitargumente.
+
+## Was Geprüft Wird
+
+- Ob der Endpunkt gültige Responses-API-Anfragen akzeptiert.
+- Ob das zurückgegebene Feld `model` zum angefragten Modell passt.
+- Ob ungültige Modellnamen abgelehnt werden.
+- Ob ungültige Werte für `reasoning.effort` mit Validierungsfehlern abgelehnt werden.
+- Ob `gpt-5.5` in Token- und Verhaltens-Fingerprints auffällig ähnlich zu einem Basismodell wirkt.
+- Ob App- und CLI-Codex-Routen ähnlich wirken, falls Codex CLI verfügbar ist.
+
+## Modi
+
+- `quick`: Schneller Vertrauenscheck in etwa 10-30 Sekunden für häufige API- und Modellroutenprobleme.
+- `full`: Tiefere Mehrfachstichproben-Prüfung über ein oder mehrere Modelle.
+
+## Repository-Struktur
+
+- `check-api-quality-and-model-integrity.sh`: Haupt-Bash-Einstieg für `quick` und `full`.
+- `check-api-quality-and-model-integrity.ps1`: Windows-PowerShell-Wrapper für den Hauptaudit.
+- `scripts/probe-gpt55-authenticity.sh`: Fokussierte `gpt-5.5`-Authentizitätsprobe.
+- `scripts/probe-gpt55-authenticity.ps1`: Windows-PowerShell-Wrapper für die fokussierte Probe.
+- `compare-app-vs-cli-gpt55.sh`: Optionaler Vergleich zwischen App- und CLI-Codex-Route.
+- `compare-app-vs-cli-gpt55.ps1`: Windows-PowerShell-Wrapper für den App/CLI-Vergleich.
+- `.env.example`: Sichere Vorlage mit Platzhaltern.
+- `reports/`: Lokales Ausgabeverzeichnis, von Git ignoriert.
+
+## Sicherheitsregeln
+
+- Keine `.env`-Dateien, API-Schlüssel, Bearer Tokens, Roh-Traces oder generierten Berichte committen.
+- Generierte Berichte werden nach `reports/` geschrieben; dieses Verzeichnis wird von Git ignoriert.
+- Die Skripte bereinigen Berichte und vermeiden das Schreiben von API-Schlüsseln oder Bearer Tokens.
+- Dokumentation und Beispiele verwenden nur Platzhalter wie `https://your-relay.example.com/v1`.
+- Prüfe Markdown- und JSON-Berichte manuell, bevor du sie veröffentlichst.
+
+## Voraussetzungen
+
+Für den Hauptaudit erforderlich:
+
+- `bash`
+- `curl`
+- `jq`
+- `rg` aus ripgrep
+- `awk`
+- `sed`
+- `perl`
+
+Optional:
+
+- `codex` CLI, nur für `compare-app-vs-cli-gpt55.*`.
+- Ein offizieller OpenAI API Key, nur für einen optionalen Vergleich zwischen Relay und offiziellem Endpunkt.
+
+## Abhängigkeiten Installieren
+
+### Windows
+
+Empfohlenes Setup in Windows Terminal:
+
+1. Git for Windows installieren: `https://git-scm.com/download/win`
+2. ripgrep und jq mit Winget installieren:
+
+```powershell
+winget install BurntSushi.ripgrep.MSVC
+winget install jqlang.jq
+```
+
+3. Windows Terminal neu öffnen.
+4. Den PowerShell-Wrapper im Repository-Stammverzeichnis ausführen.
+
+Git for Windows liefert in typischen Installationen `bash`, `curl`, `awk`, `sed` und `perl`. Wenn ein Wrapper einen fehlenden Befehl meldet, installiere den Befehl und öffne das Terminal erneut.
+
+### macOS
+
+Abhängigkeiten mit Homebrew installieren:
+
+```bash
+brew install jq ripgrep
+```
+
+macOS enthält Bash, curl, awk, sed und perl bereits. Die Systemversionen reichen für dieses Projekt aus.
+
+### Linux
+
+Debian oder Ubuntu:
+
+```bash
+sudo apt update
+sudo apt install -y bash curl jq ripgrep gawk sed perl
+```
+
+Fedora:
+
+```bash
+sudo dnf install -y bash curl jq ripgrep gawk sed perl
+```
+
+Arch Linux:
+
+```bash
+sudo pacman -S --needed bash curl jq ripgrep gawk sed perl
+```
+
+## Repository Klonen
+
+```bash
+git clone https://github.com/wyl2607/model-integrity-audit.git
+cd model-integrity-audit
+```
+
+Auf macOS und Linux bei Bedarf Ausführungsrechte setzen:
+
+```bash
+chmod +x *.sh scripts/*.sh
+```
+
+## Zugangsdaten Konfigurieren
+
+Der sicherste Weg ist eine lokale `.env`-Datei aus der Vorlage:
+
+```bash
+cp .env.example .env
+```
+
+`.env` lokal bearbeiten:
+
+```bash
+RELAY_BASE_URL="https://your-relay.example.com/v1"
+RELAY_API_KEY="your_relay_api_key"
+```
+
+Auf macOS oder Linux laden:
+
+```bash
+set -a
+source .env
+set +a
+```
+
+In PowerShell setzen:
+
+```powershell
+$env:RELAY_BASE_URL = "https://your-relay.example.com/v1"
+$env:RELAY_API_KEY = "your_relay_api_key"
+```
+
+Alternativ direkt zur Laufzeit übergeben:
+
+```bash
+./check-api-quality-and-model-integrity.sh --relay-base-url "https://your-relay.example.com/v1" --relay-api-key "your_relay_api_key" --mode quick
+```
+
+Auf gemeinsam genutzten Maschinen echte Werte nicht unnötig in die Shell-Historie schreiben.
+
+## Schnellaudit
+
+Windows PowerShell:
+
+```powershell
+.\check-api-quality-and-model-integrity.ps1 --mode quick
+```
+
+Windows PowerShell mit expliziten Werten:
+
+```powershell
+.\check-api-quality-and-model-integrity.ps1 --mode quick --relay-base-url "https://your-relay.example.com/v1" --relay-api-key "your_relay_api_key"
+```
+
+macOS oder Linux:
+
+```bash
+./check-api-quality-and-model-integrity.sh --mode quick
+```
+
+macOS oder Linux mit expliziten Werten:
+
+```bash
+./check-api-quality-and-model-integrity.sh --mode quick --relay-base-url "https://your-relay.example.com/v1" --relay-api-key "your_relay_api_key"
+```
+
+## Vollständiger Audit
+
+Windows PowerShell:
+
+```powershell
+.\check-api-quality-and-model-integrity.ps1 --mode full --reasoning-effort medium --samples 5 --baseline gpt-5.4-mini --models "gpt-5.5 gpt-5.4 gpt-5.4-mini gpt-5.3-codex gpt-5.2"
+```
+
+macOS oder Linux:
+
+```bash
+./check-api-quality-and-model-integrity.sh \
+  --mode full \
+  --reasoning-effort medium \
+  --samples 5 \
+  --baseline gpt-5.4-mini \
+  --models "gpt-5.5 gpt-5.4 gpt-5.4-mini gpt-5.3-codex gpt-5.2"
+```
+
+## Fokussierte GPT-5.5-Probe
+
+Windows PowerShell:
+
+```powershell
+.\scripts\probe-gpt55-authenticity.ps1 --model gpt-5.5 --samples 6 --reasoning-effort medium
+```
+
+macOS oder Linux:
+
+```bash
+./scripts/probe-gpt55-authenticity.sh --model gpt-5.5 --samples 6 --reasoning-effort medium
+```
+
+Optionaler offizieller API-Vergleich:
+
+```bash
+OFFICIAL_OPENAI_API_KEY="your_official_openai_api_key" ./scripts/probe-gpt55-authenticity.sh --model gpt-5.5
+```
+
+## App-vs-CLI-Routenvergleich
+
+Dieses optionale Skript benötigt Codex CLI und lokale Codex-Konfiguration.
+
+Windows PowerShell:
+
+```powershell
+.\compare-app-vs-cli-gpt55.ps1
+```
+
+macOS oder Linux:
+
+```bash
+./compare-app-vs-cli-gpt55.sh
+```
+
+## Ausgabe
+
+Berichte werden lokal geschrieben:
+
+- `reports/api-quality-model-integrity-quick-<timestamp>.json`
+- `reports/api-quality-model-integrity-quick-<timestamp>.md`
+- `reports/api-quality-model-integrity-full-<timestamp>.json`
+- `reports/api-quality-model-integrity-full-<timestamp>.md`
+- `reports/app-vs-cli-gpt55-<timestamp>.json`
+- `reports/app-vs-cli-gpt55-<timestamp>.md`
+
+Berichte sind standardmäßig bereinigt, sollten vor dem Teilen aber trotzdem geprüft werden.
+
+## Ergebnisse Interpretieren
+
+- `likely_real_gpt55_route`: Die Route hat die implementierten Verhaltensprüfungen bestanden.
+- `suspicious_or_unstable`: Wichtige Prüfungen sind fehlgeschlagen oder die Route wirkt instabil.
+- `inconclusive`: Die Evidenz reicht nicht für eine stärkere Aussage.
+
+Diese Prüfungen liefern Verhaltenshinweise, keinen kryptografischen Identitätsnachweis des Backends. Für Abrechnung oder Beschaffung sollten zusätzlich Provider-Logs, Abrechnungsexporte und unabhängige Betriebsprüfungen verwendet werden.
+
+## Fehlerbehebung
+
+- `missing command: jq`: `jq` installieren und Terminal neu öffnen.
+- `missing command: rg`: ripgrep installieren und Terminal neu öffnen.
+- `relay url/key empty`: `RELAY_BASE_URL` und `RELAY_API_KEY` setzen oder `--relay-base-url` und `--relay-api-key` übergeben.
+- PowerShell blockiert die Ausführung: `pwsh -NoProfile -ExecutionPolicy Bypass -File .\check-api-quality-and-model-integrity.ps1 --mode quick` verwenden.
+- Bash meldet `$'\r'` oder Syntaxfehler: sicherstellen, dass `.sh`-Dateien LF-Zeilenenden verwenden. Das Repository erzwingt dies über `.gitattributes`.
+
+## Lizenz
+
+MIT. Siehe [LICENSE](LICENSE).
