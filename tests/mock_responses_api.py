@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 import sys
 import time
 
@@ -14,6 +15,7 @@ VALID_MODELS = {
 }
 
 VALID_REASONING = {"none", "minimal", "low", "medium", "high", "xhigh"}
+MOCK_MODE = os.environ.get("MOCK_RESPONSES_MODE", "normal")
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -30,6 +32,14 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _raw(self, status, body, content_type="application/json"):
+        encoded = body.encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(encoded)))
+        self.end_headers()
+        self.wfile.write(encoded)
+
     def do_GET(self):
         if self.path == "/health":
             self._json(200, {"ok": True})
@@ -40,6 +50,17 @@ class Handler(BaseHTTPRequestHandler):
         if self.path != "/v1/responses":
             self._json(404, {"error": {"message": "not found"}})
             return
+
+        if MOCK_MODE == "server_error":
+            self._json(500, {"error": {"message": "mock server error"}})
+            return
+
+        if MOCK_MODE == "malformed_json":
+            self._raw(200, '{"id":"resp_mock_broken", "model":')
+            return
+
+        if MOCK_MODE == "timeout":
+            time.sleep(3)
 
         auth = self.headers.get("Authorization", "")
         if not auth.startswith("Bearer "):
@@ -69,10 +90,10 @@ class Handler(BaseHTTPRequestHandler):
         reasoning_tokens = fingerprint["reasoning"]
         input_tokens = max(1, len(str(request.get("input", "")).split()))
 
-        self._json(200, {
+        response = {
             "id": f"resp_mock_{int(time.time() * 1000)}",
             "object": "response",
-            "model": model,
+            "model": "gpt-5.4-mini" if MOCK_MODE == "model_mismatch" else model,
             "output_text": text,
             "usage": {
                 "input_tokens": input_tokens,
@@ -80,7 +101,10 @@ class Handler(BaseHTTPRequestHandler):
                 "output_tokens_details": {"reasoning_tokens": reasoning_tokens},
                 "total_tokens": input_tokens + output_tokens + reasoning_tokens,
             },
-        })
+        }
+        if MOCK_MODE == "missing_usage":
+            response.pop("usage")
+        self._json(200, response)
 
 
 def main():

@@ -294,6 +294,14 @@ Windows PowerShell：
 
 该脚本会启动 `tests/mock_responses_api.py`，针对 `127.0.0.1` 运行 quick audit 和专门探针，验证 endpoint redaction、负向控制，然后清理本地测试服务。
 
+也可以运行失败路径覆盖测试：
+
+```bash
+./tests/run_mock_failure_e2e.sh
+```
+
+该测试会验证 server error、损坏 JSON、缺失 usage、model mismatch、慢响应等情况会生成 warning 或 failed control，而不是错误地给出 high-confidence success。
+
 ## 结果解读
 
 - `likely_real_gpt55_route`：该路由通过了当前实现的行为检查。
