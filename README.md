@@ -312,7 +312,16 @@ This verifies that server errors, malformed JSON, missing usage data, model mism
 - `suspicious_or_unstable`: The route failed important checks or looked unstable.
 - `inconclusive`: There was not enough evidence to make a stronger call.
 
-These checks are behavioral evidence, not cryptographic proof of backend identity. For billing or procurement decisions, combine the report with provider logs, billing exports, and independent operational checks.
+Use `verdict`, `score`, `warnings`, and `failed_controls` together. A high score means the endpoint behavior matched the implemented controls during that run; it is not a cryptographic proof of backend identity.
+
+Review signals can have several causes:
+
+- Missing `usage` can mean the relay hides metadata, not necessarily that the model is fake.
+- Model echo mismatches can come from proxy normalization, aliasing, or a wrong route.
+- Timeout, malformed JSON, or server errors are reliability signals and should usually be rerun before making a strong conclusion.
+- Similarity to a baseline model is behavioral evidence and should be interpreted with the negative controls and HTTP evidence.
+
+For billing, procurement, or incident response decisions, combine the report with provider logs, billing exports, official endpoint comparisons, and independent operational checks.
 
 ## Troubleshooting
 
