@@ -277,6 +277,16 @@ Windows PowerShell:
 
 The scan checks tracked files for common API key patterns, bearer tokens, private endpoint examples, trace IDs, and accidentally tracked `.env` or `reports/` files.
 
+## Offline Integrity Test
+
+The repository includes a local mock Responses API so CI and contributors can test the audit flow without real API keys or real endpoints:
+
+```bash
+./tests/run_mock_e2e.sh
+```
+
+This starts `tests/mock_responses_api.py`, runs the quick audit and focused probe against `127.0.0.1`, verifies endpoint redaction, validates negative controls, and then removes the local test server.
+
 ## Interpreting Results
 
 - `likely_real_gpt55_route`: The route passed the implemented behavioral checks.
