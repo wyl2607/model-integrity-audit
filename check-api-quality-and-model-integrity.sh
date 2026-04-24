@@ -87,6 +87,16 @@ require_cmds() {
   fi
 }
 
+require_arg_value() {
+  local option="$1"
+  local value="${2:-}"
+  if [[ -z "$value" || "$value" == --* ]]; then
+    echo "[error] $option requires a value" >&2
+    usage
+    exit 1
+  fi
+}
+
 extract_root_value() {
   local file="$1"
   local key="$2"
@@ -147,19 +157,19 @@ sanitize_url() {
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --mode) MODE="$2"; shift 2 ;;
-    --samples) SAMPLES="$2"; shift 2 ;;
-    --reasoning-effort) REASONING_EFFORT="$2"; shift 2 ;;
-    --models) IFS=' ' read -r -a MODELS <<< "$2"; shift 2 ;;
-    --quick-models) IFS=' ' read -r -a QUICK_MODELS <<< "$2"; shift 2 ;;
-    --baseline) MODEL_BASELINE="$2"; shift 2 ;;
-    --relay-base-url) RELAY_BASE_URL="$2"; shift 2 ;;
-    --relay-api-key) RELAY_API_KEY="$2"; shift 2 ;;
-    --config) CONFIG_FILE="$2"; shift 2 ;;
-    --out-dir) OUT_DIR="$2"; shift 2 ;;
-    --connect-timeout) CURL_CONNECT_TIMEOUT="$2"; shift 2 ;;
-    --max-time) CURL_MAX_TIME="$2"; shift 2 ;;
-    --retries) CURL_RETRIES="$2"; shift 2 ;;
+    --mode) require_arg_value "$1" "${2:-}"; MODE="$2"; shift 2 ;;
+    --samples) require_arg_value "$1" "${2:-}"; SAMPLES="$2"; shift 2 ;;
+    --reasoning-effort) require_arg_value "$1" "${2:-}"; REASONING_EFFORT="$2"; shift 2 ;;
+    --models) require_arg_value "$1" "${2:-}"; IFS=' ' read -r -a MODELS <<< "$2"; shift 2 ;;
+    --quick-models) require_arg_value "$1" "${2:-}"; IFS=' ' read -r -a QUICK_MODELS <<< "$2"; shift 2 ;;
+    --baseline) require_arg_value "$1" "${2:-}"; MODEL_BASELINE="$2"; shift 2 ;;
+    --relay-base-url) require_arg_value "$1" "${2:-}"; RELAY_BASE_URL="$2"; shift 2 ;;
+    --relay-api-key) require_arg_value "$1" "${2:-}"; RELAY_API_KEY="$2"; shift 2 ;;
+    --config) require_arg_value "$1" "${2:-}"; CONFIG_FILE="$2"; shift 2 ;;
+    --out-dir) require_arg_value "$1" "${2:-}"; OUT_DIR="$2"; shift 2 ;;
+    --connect-timeout) require_arg_value "$1" "${2:-}"; CURL_CONNECT_TIMEOUT="$2"; shift 2 ;;
+    --max-time) require_arg_value "$1" "${2:-}"; CURL_MAX_TIME="$2"; shift 2 ;;
+    --retries) require_arg_value "$1" "${2:-}"; CURL_RETRIES="$2"; shift 2 ;;
     --show-endpoint) REDACT_ENDPOINT=0; shift ;;
     -h|--help) usage; exit 0 ;;
     *)
