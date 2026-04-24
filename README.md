@@ -36,6 +36,8 @@ The project is designed for common Windows, macOS, and Linux environments. It ne
 - Do not commit `.env`, API keys, bearer tokens, raw traces, or generated reports.
 - Generated reports are written to `reports/`, which is ignored by Git.
 - The scripts sanitize report output and avoid writing API keys or bearer tokens.
+- Report endpoints are redacted by default. Use `--show-endpoint` only when you intentionally want the endpoint origin in local reports.
+- Run `./scripts/secret-scan.sh` or `.\scripts\secret-scan.ps1` before opening a PR.
 - Use placeholder values in documentation and examples, such as `https://your-relay.example.com/v1`.
 - If you publish results, review the Markdown and JSON reports first.
 
@@ -183,6 +185,14 @@ macOS or Linux with explicit values:
 ./check-api-quality-and-model-integrity.sh --mode quick --relay-base-url "https://your-relay.example.com/v1" --relay-api-key "your_relay_api_key"
 ```
 
+Network controls are available when running against slower endpoints:
+
+```bash
+./check-api-quality-and-model-integrity.sh --mode quick --connect-timeout 10 --max-time 60 --retries 2
+```
+
+Reports redact endpoint origins by default. To include the sanitized origin in a local-only report, add `--show-endpoint`.
+
 ## Full Audit
 
 Windows PowerShell:
@@ -251,6 +261,22 @@ Reports are written locally:
 
 Reports are sanitized by design, but you should still review them before sharing.
 
+## Secret Scan
+
+Before committing or sharing results, run:
+
+```bash
+./scripts/secret-scan.sh
+```
+
+Windows PowerShell:
+
+```powershell
+.\scripts\secret-scan.ps1
+```
+
+The scan checks tracked files for common API key patterns, bearer tokens, private endpoint examples, trace IDs, and accidentally tracked `.env` or `reports/` files.
+
 ## Interpreting Results
 
 - `likely_real_gpt55_route`: The route passed the implemented behavioral checks.
@@ -266,6 +292,7 @@ These checks are behavioral evidence, not cryptographic proof of backend identit
 - `relay url/key empty`: Set `RELAY_BASE_URL` and `RELAY_API_KEY`, or pass `--relay-base-url` and `--relay-api-key`.
 - PowerShell blocks script execution: run with `pwsh -NoProfile -ExecutionPolicy Bypass -File .\check-api-quality-and-model-integrity.ps1 --mode quick`.
 - Bash reports `$'\r'` or syntax errors: ensure `.sh` files use LF line endings. The repository includes `.gitattributes` to enforce this.
+- Slow or hanging endpoints: use `--connect-timeout`, `--max-time`, and `--retries`.
 
 ## License
 

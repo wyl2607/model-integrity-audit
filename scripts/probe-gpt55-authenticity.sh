@@ -12,6 +12,35 @@ RELAY_API_KEY=""
 OPENAI_BASE_URL="https://api.openai.com/v1"
 OPENAI_API_KEY="${OFFICIAL_OPENAI_API_KEY:-}"
 OUT_FILE=""
+CURL_CONNECT_TIMEOUT=10
+CURL_MAX_TIME=60
+CURL_RETRIES=2
+REDACT_ENDPOINT=1
+TMP_FILES=()
+
+cleanup() {
+  if [[ "${#TMP_FILES[@]}" -gt 0 ]]; then
+    rm -f "${TMP_FILES[@]}"
+  fi
+}
+trap cleanup EXIT
+
+make_tmp() {
+  local file
+  file="$(mktemp)"
+  TMP_FILES+=("$file")
+  printf '%s\n' "$file"
+}
+
+drop_tmp() {
+  local file="$1"
+  local kept=()
+  rm -f "$file"
+  for item in "${TMP_FILES[@]}"; do
+    [[ "$item" != "$file" ]] && kept+=("$item")
+  done
+  TMP_FILES=("${kept[@]}")
+}
 
 usage() {
   cat <<'EOF'
@@ -30,6 +59,10 @@ Options:
   --openai-base-url <url>    Official base URL (default: https://api.openai.com/v1)
   --openai-api-key <key>     Official OpenAI key for optional A/B compare
   --out <path>               Output JSON report path (default: ./gpt55-probe-report-<ts>.json)
+  --connect-timeout <sec>    curl connect timeout seconds (default: 10)
+  --max-time <sec>           curl max request time seconds (default: 60)
+  --retries <n>              curl retry count (default: 2)
+  --show-endpoint            Include sanitized endpoint origin in reports (default: redacted)
   -h, --help                 Show help
 
 Environment:
@@ -83,10 +116,10 @@ post_json() {
   local api_key="$2"
   local body="$3"
   local body_file header_file code start end latency
-  body_file="$(mktemp)"
-  header_file="$(mktemp)"
+  body_file="$(make_tmp)"
+  header_file="$(make_tmp)"
   start="$(now_ms)"
-  code="$(curl -sS -o "$body_file" -D "$header_file" -w '%{http_code}' "$url" \
+  code="$(curl -sS --connect-timeout "$CURL_CONNECT_TIMEOUT" --max-time "$CURL_MAX_TIME" --retry "$CURL_RETRIES" --retry-all-errors -o "$body_file" -D "$header_file" -w '%{http_code}' "$url" \
     -H "Authorization: Bearer $api_key" \
     -H "Content-Type: application/json" \
     -d "$body")" || code="000"
@@ -111,6 +144,15 @@ passfail() {
   fi
 }
 
+sanitize_url() {
+  local raw="$1"
+  if [[ "$REDACT_ENDPOINT" -eq 1 ]]; then
+    echo "<redacted-endpoint>"
+    return
+  fi
+  echo "$raw" | sed -E 's#(https?://[^/]+).*#\1#'
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --model) MODEL="$2"; shift 2 ;;
@@ -122,6 +164,10 @@ while [[ $# -gt 0 ]]; do
     --openai-base-url) OPENAI_BASE_URL="$2"; shift 2 ;;
     --openai-api-key) OPENAI_API_KEY="$2"; shift 2 ;;
     --out) OUT_FILE="$2"; shift 2 ;;
+    --connect-timeout) CURL_CONNECT_TIMEOUT="$2"; shift 2 ;;
+    --max-time) CURL_MAX_TIME="$2"; shift 2 ;;
+    --retries) CURL_RETRIES="$2"; shift 2 ;;
+    --show-endpoint) REDACT_ENDPOINT=0; shift ;;
     -h|--help) usage; exit 0 ;;
     *)
       echo "[error] unknown argument: $1" >&2
@@ -173,12 +219,22 @@ if ! [[ "$REASONING_EFFORT" =~ ^(none|minimal|low|medium|high|xhigh)$ ]]; then
   exit 1
 fi
 
+for timeout_value in "$CURL_CONNECT_TIMEOUT" "$CURL_MAX_TIME" "$CURL_RETRIES"; do
+  if ! [[ "$timeout_value" =~ ^[0-9]+$ ]]; then
+    echo "[error] timeout and retry options must be non-negative integers" >&2
+    exit 1
+  fi
+done
+
 if [[ -z "$OUT_FILE" ]]; then
   OUT_FILE="$PWD/gpt55-probe-report-$(date -u +%Y%m%dT%H%M%SZ).json"
 fi
 
 RESPONSES_URL="${RELAY_BASE_URL%/}/responses"
 OPENAI_RESPONSES_URL="${OPENAI_BASE_URL%/}/responses"
+SANITIZED_RELAY_BASE_URL="$(sanitize_url "$RELAY_BASE_URL")"
+SANITIZED_RESPONSES_URL="$(sanitize_url "$RESPONSES_URL")"
+SANITIZED_OPENAI_BASE_URL="$(sanitize_url "$OPENAI_BASE_URL")"
 ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 score=0
@@ -265,7 +321,8 @@ for i in $(seq 1 "$SAMPLES"); do
     fi
   fi
 
-  rm -f "$p_body_file" "$p_hdr_file"
+  drop_tmp "$p_body_file"
+  drop_tmp "$p_hdr_file"
 done
 
 sample_ratio="$(awk -v ok="$sample_success" -v n="$SAMPLES" 'BEGIN { if (n==0) printf "0.000"; else printf "%.3f", ok/n }')"
@@ -307,7 +364,10 @@ if [[ -n "$OPENAI_API_KEY" ]]; then
   fi
 
   official_compare_note="official compare attempted"
-  rm -f "$official_valid_body_file" "$official_valid_hdr_file" "$official_bad_body_file" "$official_bad_hdr_file"
+  drop_tmp "$official_valid_body_file"
+  drop_tmp "$official_valid_hdr_file"
+  drop_tmp "$official_bad_body_file"
+  drop_tmp "$official_bad_hdr_file"
 fi
 
 confidence="low"
@@ -326,8 +386,8 @@ fi
 
 jq -n \
   --arg timestamp "$ts" \
-  --arg relay_base_url "$RELAY_BASE_URL" \
-  --arg responses_url "$RESPONSES_URL" \
+  --arg relay_base_url "$SANITIZED_RELAY_BASE_URL" \
+  --arg responses_url "$SANITIZED_RESPONSES_URL" \
   --arg model "$MODEL" \
   --argjson samples "$SAMPLES" \
   --argjson score "$score" \
@@ -344,7 +404,7 @@ jq -n \
   --argjson reasoning_ratio "$reasoning_ratio" \
   --argjson avg_latency_ms "$avg_latency_ms" \
   --argjson official_compare_enabled "$(to_bool "$official_compare_enabled")" \
-  --arg official_base_url "$OPENAI_BASE_URL" \
+  --arg official_base_url "$SANITIZED_OPENAI_BASE_URL" \
   --arg official_valid_code "$official_valid_code" \
   --arg official_bad_code "$official_bad_code" \
   --argjson official_valid_match "$(to_bool "$official_valid_match")" \
@@ -392,7 +452,7 @@ jq -n \
   }' > "$OUT_FILE"
 
 echo "== gpt-5.5 authenticity probe =="
-echo "relay responses url : $RESPONSES_URL"
+echo "relay responses url : $SANITIZED_RESPONSES_URL"
 echo "model               : $MODEL"
 echo "valid call          : $(passfail "$valid_http_ok") (http=$valid_code)"
 echo "model echo          : $(passfail "$valid_model_match")"
@@ -405,4 +465,9 @@ echo "score               : $score/100 ($confidence)"
 echo "verdict             : $verdict"
 echo "report              : $OUT_FILE"
 
-rm -f "$valid_body_file" "$valid_hdr_file" "$bad_body_file" "$bad_hdr_file" "$miss_body_file" "$miss_hdr_file"
+drop_tmp "$valid_body_file"
+drop_tmp "$valid_hdr_file"
+drop_tmp "$bad_body_file"
+drop_tmp "$bad_hdr_file"
+drop_tmp "$miss_body_file"
+drop_tmp "$miss_hdr_file"

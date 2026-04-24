@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y jq ripgrep
+
+      - name: Check shell syntax
+        run: |
+          bash -n check-api-quality-and-model-integrity.sh
+          bash -n compare-app-vs-cli-gpt55.sh
+          bash -n scripts/probe-gpt55-authenticity.sh
+          bash -n scripts/secret-scan.sh
+
+      - name: Run secret scan
+        run: bash scripts/secret-scan.sh
+
+      - name: Check PowerShell wrappers
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $null = [System.Management.Automation.PSParser]::Tokenize((Get-Content -Raw check-api-quality-and-model-integrity.ps1), [ref]$null)
+          $null = [System.Management.Automation.PSParser]::Tokenize((Get-Content -Raw compare-app-vs-cli-gpt55.ps1), [ref]$null)
+          $null = [System.Management.Automation.PSParser]::Tokenize((Get-Content -Raw scripts/probe-gpt55-authenticity.ps1), [ref]$null)
+          $null = [System.Management.Automation.PSParser]::Tokenize((Get-Content -Raw scripts/secret-scan.ps1), [ref]$null)
