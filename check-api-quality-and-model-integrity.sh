@@ -18,6 +18,35 @@ OUT_DIR="${PROJECT_ROOT}/reports"
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 JSON_OUT=""
 MD_OUT=""
+CURL_CONNECT_TIMEOUT=10
+CURL_MAX_TIME=60
+CURL_RETRIES=2
+REDACT_ENDPOINT=1
+TMP_FILES=()
+
+cleanup() {
+  if [[ "${#TMP_FILES[@]}" -gt 0 ]]; then
+    rm -f "${TMP_FILES[@]}"
+  fi
+}
+trap cleanup EXIT
+
+make_tmp() {
+  local file
+  file="$(mktemp)"
+  TMP_FILES+=("$file")
+  printf '%s\n' "$file"
+}
+
+drop_tmp() {
+  local file="$1"
+  local kept=()
+  rm -f "$file"
+  for item in "${TMP_FILES[@]}"; do
+    [[ "$item" != "$file" ]] && kept+=("$item")
+  done
+  TMP_FILES=("${kept[@]}")
+}
 
 usage() {
   cat <<'EOF'
@@ -37,6 +66,10 @@ Options:
   --relay-api-key <key>     Relay API key (default from ~/.codex/auth.json or OPENAI_API_KEY)
   --config <path>           CLI config path (default: ~/.codex/config.toml)
   --out-dir <path>          Report output directory (default: <project>/reports)
+  --connect-timeout <sec>   curl connect timeout seconds (default: 10)
+  --max-time <sec>          curl max request time seconds (default: 60)
+  --retries <n>             curl retry count (default: 2)
+  --show-endpoint           Include sanitized endpoint origin in reports (default: redacted)
   -h, --help                Show help
 EOF
 }
@@ -92,9 +125,9 @@ post_json() {
   local end
   local latency
 
-  body_file="$(mktemp)"
+  body_file="$(make_tmp)"
   start="$(now_ms)"
-  code="$(curl -sS -o "$body_file" -w '%{http_code}' "$url" \
+  code="$(curl -sS --connect-timeout "$CURL_CONNECT_TIMEOUT" --max-time "$CURL_MAX_TIME" --retry "$CURL_RETRIES" --retry-all-errors -o "$body_file" -w '%{http_code}' "$url" \
     -H "Authorization: Bearer $api_key" \
     -H "Content-Type: application/json" \
     -d "$body")" || code="000"
@@ -105,6 +138,10 @@ post_json() {
 
 sanitize_url() {
   local raw="$1"
+  if [[ "$REDACT_ENDPOINT" -eq 1 ]]; then
+    echo "<redacted-endpoint>"
+    return
+  fi
   echo "$raw" | sed -E 's#(https?://[^/]+).*#\1#'
 }
 
@@ -120,6 +157,10 @@ while [[ $# -gt 0 ]]; do
     --relay-api-key) RELAY_API_KEY="$2"; shift 2 ;;
     --config) CONFIG_FILE="$2"; shift 2 ;;
     --out-dir) OUT_DIR="$2"; shift 2 ;;
+    --connect-timeout) CURL_CONNECT_TIMEOUT="$2"; shift 2 ;;
+    --max-time) CURL_MAX_TIME="$2"; shift 2 ;;
+    --retries) CURL_RETRIES="$2"; shift 2 ;;
+    --show-endpoint) REDACT_ENDPOINT=0; shift ;;
     -h|--help) usage; exit 0 ;;
     *)
       echo "[error] unknown argument: $1" >&2
@@ -145,6 +186,13 @@ if ! [[ "$REASONING_EFFORT" =~ ^(none|minimal|low|medium|high|xhigh)$ ]]; then
   echo "[error] --reasoning-effort must be one of: none|minimal|low|medium|high|xhigh" >&2
   exit 1
 fi
+
+for timeout_value in "$CURL_CONNECT_TIMEOUT" "$CURL_MAX_TIME" "$CURL_RETRIES"; do
+  if ! [[ "$timeout_value" =~ ^[0-9]+$ ]]; then
+    echo "[error] timeout and retry options must be non-negative integers" >&2
+    exit 1
+  fi
+done
 
 if [[ -z "$RELAY_BASE_URL" ]]; then
   if [[ ! -f "$CONFIG_FILE" ]]; then
@@ -225,7 +273,7 @@ if [[ "$MODE" == "quick" ]]; then
         error:$error
       }')"
     quick_rows="$(jq -c --argjson row "$row" '. + [$row]' <<< "$quick_rows")"
-    rm -f "$body_file"
+    drop_tmp "$body_file"
   done
 
   # Negative control: invalid model should fail
@@ -237,7 +285,7 @@ if [[ "$MODE" == "quick" ]]; then
   if [[ "$bad_code" != "200" ]] && echo "$bad_msg" | rg -qi '不存在|not exist|unknown|not found|model'; then
     bad_model_rejected=1
   fi
-  rm -f "$bad_file"
+  drop_tmp "$bad_file"
 
   # Invalid reasoning effort should return enum-style validation error
   bad_param_req="$(jq -nc '{model:"gpt-5.5",input:"OK",max_output_tokens:16,reasoning:{effort:"ultra"}}')"
@@ -247,7 +295,7 @@ if [[ "$MODE" == "quick" ]]; then
   if [[ "$bad_param_code" =~ ^(400|422)$ ]] && echo "$bad_param_msg" | rg -q 'Supported values are|reasoning\.effort|invalid_value'; then
     bad_param_enum_ok=1
   fi
-  rm -f "$bad_param_file"
+  drop_tmp "$bad_param_file"
 
   # Quick confidence scoring
   score=0
@@ -372,7 +420,7 @@ if [[ "$MODE" == "quick" ]]; then
   ' "$JSON_OUT" > "$MD_OUT"
 
 else
-  probe_json_tmp="$(mktemp)"
+  probe_json_tmp="$(make_tmp)"
   "${PROJECT_ROOT}/scripts/probe-gpt55-authenticity.sh" \
     --model "gpt-5.5" \
     --samples "$SAMPLES" \
@@ -415,7 +463,7 @@ else
         em="$(jq -r '.error.message // .message // ""' "$body_file" 2>/dev/null || true)"
         errs_json="$(jq -c --arg e "$em" '. + [$e]' <<< "$errs_json")"
       fi
-      rm -f "$body_file"
+      drop_tmp "$body_file"
     done
 
     bad_body="$(jq -nc --arg m "$model" '{model:$m,input:"OK",max_output_tokens:16,reasoning:{effort:"ultra"}}')"
@@ -425,7 +473,7 @@ else
     if [[ "$bad_code" =~ ^(400|422)$ ]] && echo "$bad_msg" | rg -q 'Supported values are|reasoning\.effort|invalid_value'; then
       bad_enum_ok=1
     fi
-    rm -f "$bad_file"
+    drop_tmp "$bad_file"
 
     avg_latency=0; avg_output=0; avg_reason=0; avg_total=0; avg_text_len=0; reason_ratio="0.000"
     if [[ "$ok" -gt 0 ]]; then
@@ -560,7 +608,7 @@ else
     ]) | join("\n")
   ' "$JSON_OUT" > "$MD_OUT"
 
-  rm -f "$probe_json_tmp"
+  drop_tmp "$probe_json_tmp"
 fi
 
 echo "json_report=$JSON_OUT"

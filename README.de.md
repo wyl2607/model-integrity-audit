@@ -36,6 +36,8 @@ Das Projekt ist für typische Windows-, macOS- und Linux-Umgebungen gedacht. Rea
 - Keine `.env`-Dateien, API-Schlüssel, Bearer Tokens, Roh-Traces oder generierten Berichte committen.
 - Generierte Berichte werden nach `reports/` geschrieben; dieses Verzeichnis wird von Git ignoriert.
 - Die Skripte bereinigen Berichte und vermeiden das Schreiben von API-Schlüsseln oder Bearer Tokens.
+- Endpunkte werden in Berichten standardmäßig redigiert. Verwende `--show-endpoint` nur, wenn die Endpoint-Origin absichtlich in lokalen Berichten erscheinen soll.
+- Vor einem PR `./scripts/secret-scan.sh` oder `.\scripts\secret-scan.ps1` ausführen.
 - Dokumentation und Beispiele verwenden nur Platzhalter wie `https://your-relay.example.com/v1`.
 - Prüfe Markdown- und JSON-Berichte manuell, bevor du sie veröffentlichst.
 
@@ -183,6 +185,14 @@ macOS oder Linux mit expliziten Werten:
 ./check-api-quality-and-model-integrity.sh --mode quick --relay-base-url "https://your-relay.example.com/v1" --relay-api-key "your_relay_api_key"
 ```
 
+Für langsamere Endpunkte können Netzwerkparameter gesetzt werden:
+
+```bash
+./check-api-quality-and-model-integrity.sh --mode quick --connect-timeout 10 --max-time 60 --retries 2
+```
+
+Berichte redigieren Endpoint-Origins standardmäßig. Für lokale Berichte mit sichtbarer bereinigter Origin kann `--show-endpoint` ergänzt werden.
+
 ## Vollständiger Audit
 
 Windows PowerShell:
@@ -251,6 +261,22 @@ Berichte werden lokal geschrieben:
 
 Berichte sind standardmäßig bereinigt, sollten vor dem Teilen aber trotzdem geprüft werden.
 
+## Secret Scan
+
+Vor dem Committen oder Teilen ausführen:
+
+```bash
+./scripts/secret-scan.sh
+```
+
+Windows PowerShell:
+
+```powershell
+.\scripts\secret-scan.ps1
+```
+
+Der Scan prüft getrackte Dateien auf typische API-Key-Muster, Bearer Tokens, private Endpoint-Beispiele, Trace IDs und versehentlich getrackte `.env`- oder `reports/`-Dateien.
+
 ## Ergebnisse Interpretieren
 
 - `likely_real_gpt55_route`: Die Route hat die implementierten Verhaltensprüfungen bestanden.
@@ -266,6 +292,7 @@ Diese Prüfungen liefern Verhaltenshinweise, keinen kryptografischen Identitäts
 - `relay url/key empty`: `RELAY_BASE_URL` und `RELAY_API_KEY` setzen oder `--relay-base-url` und `--relay-api-key` übergeben.
 - PowerShell blockiert die Ausführung: `pwsh -NoProfile -ExecutionPolicy Bypass -File .\check-api-quality-and-model-integrity.ps1 --mode quick` verwenden.
 - Bash meldet `$'\r'` oder Syntaxfehler: sicherstellen, dass `.sh`-Dateien LF-Zeilenenden verwenden. Das Repository erzwingt dies über `.gitattributes`.
+- Langsame oder hängende Endpunkte: `--connect-timeout`, `--max-time` und `--retries` verwenden.
 
 ## Lizenz
 
