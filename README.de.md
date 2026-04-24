@@ -294,6 +294,14 @@ Das Repository enthält eine lokale Mock-Responses-API, damit CI und Mitwirkende
 
 Das Skript startet `tests/mock_responses_api.py`, führt den Quick Audit und die fokussierte Probe gegen `127.0.0.1` aus, prüft Endpoint-Redaktion und negative Kontrollen und entfernt anschließend den lokalen Testserver.
 
+Zusätzlich gibt es Abdeckung für Fehlerpfade:
+
+```bash
+./tests/run_mock_failure_e2e.sh
+```
+
+Dieser Test prüft, dass Serverfehler, fehlerhaftes JSON, fehlende Usage-Daten, Modell-Mismatches und langsame Antworten Warnungen oder fehlgeschlagene Kontrollen erzeugen, statt fälschlich einen High-Confidence-Erfolg zu melden.
+
 ## Ergebnisse Interpretieren
 
 - `likely_real_gpt55_route`: Die Route hat die implementierten Verhaltensprüfungen bestanden.

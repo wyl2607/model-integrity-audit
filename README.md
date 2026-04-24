@@ -294,6 +294,14 @@ The repository includes a local mock Responses API so CI and contributors can te
 
 This starts `tests/mock_responses_api.py`, runs the quick audit and focused probe against `127.0.0.1`, verifies endpoint redaction, validates negative controls, and then removes the local test server.
 
+Failure-path coverage is also available:
+
+```bash
+./tests/run_mock_failure_e2e.sh
+```
+
+This verifies that server errors, malformed JSON, missing usage data, model mismatches, and slow responses produce warnings or failed controls instead of high-confidence success.
+
 ## Interpreting Results
 
 - `likely_real_gpt55_route`: The route passed the implemented behavioral checks.

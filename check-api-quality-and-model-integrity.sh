@@ -301,8 +301,11 @@ if [[ "$MODE" == "quick" ]]; then
   score=0
   success_200_count="$(jq '[.[] | select(.http_code=="200")] | length' <<< "$quick_rows")"
   echo_ok_count="$(jq '[.[] | select(.model_echo_ok==true)] | length' <<< "$quick_rows")"
+  usage_present_count="$(jq '[.[] | select(.http_code=="200" and .total_tokens > 0)] | length' <<< "$quick_rows")"
   if [[ "$success_200_count" -ge 2 ]]; then score=$((score+30)); fi
   if [[ "$echo_ok_count" -ge 2 ]]; then score=$((score+20)); fi
+  if [[ "$success_200_count" -gt 0 && "$echo_ok_count" -lt "$success_200_count" ]]; then score=$((score-30)); fi
+  if [[ "$usage_present_count" -lt "$success_200_count" ]]; then score=$((score-40)); fi
   if [[ "$bad_model_rejected" -eq 1 ]]; then score=$((score+20)); fi
   if [[ "$bad_param_enum_ok" -eq 1 ]]; then score=$((score+20)); fi
 
@@ -346,6 +349,7 @@ if [[ "$MODE" == "quick" ]]; then
   evidence_json="$(jq -nc \
     --argjson success_200_count "$success_200_count" \
     --argjson echo_ok_count "$echo_ok_count" \
+    --argjson usage_present_count "$usage_present_count" \
     --argjson bad_model_rejected "$( [[ "$bad_model_rejected" -eq 1 ]] && echo true || echo false )" \
     --argjson bad_param_enum_ok "$( [[ "$bad_param_enum_ok" -eq 1 ]] && echo true || echo false )" \
     --argjson looks_like_mini "$looks_like_mini" \
@@ -354,7 +358,8 @@ if [[ "$MODE" == "quick" ]]; then
     --arg verdict "$verdict" \
     '[
       {level:"info", check:"successful_model_calls", message:("Successful model calls: " + ($success_200_count|tostring)), value:$success_200_count},
-      {level:"info", check:"model_echo", message:("Model echo matched for " + ($echo_ok_count|tostring) + " calls"), value:$echo_ok_count},
+      {level:(if $echo_ok_count == $success_200_count then "info" else "warning" end), check:"model_echo", message:("Model echo matched for " + ($echo_ok_count|tostring) + "/" + ($success_200_count|tostring) + " successful calls"), passed:($echo_ok_count == $success_200_count), value:$echo_ok_count},
+      {level:(if $usage_present_count == $success_200_count then "info" else "warning" end), check:"usage_visibility", message:("Usage present for " + ($usage_present_count|tostring) + "/" + ($success_200_count|tostring) + " successful calls"), passed:($usage_present_count == $success_200_count), value:$usage_present_count},
       {level:(if $bad_model_rejected then "info" else "warning" end), check:"invalid_model_rejected", message:(if $bad_model_rejected then "Invalid model negative control was rejected" else "Invalid model negative control was not rejected" end), passed:$bad_model_rejected},
       {level:(if $bad_param_enum_ok then "info" else "warning" end), check:"invalid_reasoning_param", message:(if $bad_param_enum_ok then "Invalid reasoning.effort negative control returned a validation-style error" else "Invalid reasoning.effort negative control did not return the expected validation-style error" end), passed:$bad_param_enum_ok},
       {level:(if $looks_like_mini then "warning" else "info" end), check:"baseline_similarity", message:$mini_similarity_note, looks_like_baseline_mini:$looks_like_mini},
