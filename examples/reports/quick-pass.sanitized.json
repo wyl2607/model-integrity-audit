@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-04-24T00:00:00Z",
+  "report_type": "api_quality_model_integrity",
+  "mode": "quick",
+  "endpoint": "<redacted-endpoint>",
+  "sanitized": true,
+  "target_seconds": 30,
+  "models": [
+    "gpt-5.5",
+    "gpt-5.4",
+    "gpt-5.4-mini"
+  ],
+  "score": 92,
+  "verdict": "likely_real_gpt55_route",
+  "results": [
+    {
+      "model": "gpt-5.5",
+      "http_code": 200,
+      "latency_ms": 842,
+      "model_echo": true,
+      "usage_visible": true
+    },
+    {
+      "model": "gpt-5.4",
+      "http_code": 200,
+      "latency_ms": 811,
+      "model_echo": true,
+      "usage_visible": true
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "http_code": 200,
+      "latency_ms": 621,
+      "model_echo": true,
+      "usage_visible": true
+    }
+  ],
+  "evidence": [
+    {
+      "level": "info",
+      "control": "valid_http",
+      "message": "All quick-mode requests returned successful HTTP responses.",
+      "value": "3/3"
+    },
+    {
+      "level": "info",
+      "control": "model_echo",
+      "message": "Returned model fields matched requested models.",
+      "value": "3/3"
+    },
+    {
+      "level": "info",
+      "control": "usage_visibility",
+      "message": "Usage metadata was visible in successful responses.",
+      "value": "3/3"
+    }
+  ],
+  "warnings": [],
+  "failed_controls": [],
+  "recommendations": [
+    "Keep this report local unless you have reviewed it for sensitive operational details."
+  ]
+}

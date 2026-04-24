@@ -28,6 +28,8 @@ The project is designed for common Windows, macOS, and Linux environments. It ne
 - `scripts/probe-gpt55-authenticity.ps1`: Windows PowerShell wrapper for the focused probe.
 - `compare-app-vs-cli-gpt55.sh`: Optional App vs CLI Codex route comparison.
 - `compare-app-vs-cli-gpt55.ps1`: Windows PowerShell wrapper for App vs CLI comparison.
+- `docs/report-schema.md`: JSON report field contract and consumer guidance.
+- `examples/reports/`: Sanitized example reports for quick review and downstream integration.
 - `.env.example`: Safe placeholder environment template.
 - `reports/`: Local output directory, ignored by Git.
 
@@ -267,6 +269,8 @@ Each JSON report includes explainability fields:
 - `warnings`: warning messages extracted from evidence.
 - `failed_controls`: controls that failed or need review.
 - `recommendations`: next steps based on the observed evidence.
+
+See `docs/report-schema.md` for the JSON field contract and `examples/reports/` for sanitized report examples.
 
 ## Secret Scan
 

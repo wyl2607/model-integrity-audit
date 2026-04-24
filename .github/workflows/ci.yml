@@ -29,6 +29,9 @@ jobs:
       - name: Run secret scan
         run: bash scripts/secret-scan.sh
 
+      - name: Validate example reports
+        run: jq empty examples/reports/*.json
+
       - name: Run mock E2E audit
         run: bash tests/run_mock_e2e.sh
 

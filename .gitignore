@@ -1,4 +1,6 @@
 reports/
+!examples/reports/
+!examples/reports/*.json
 .env
 .env.*
 !.env.example
