@@ -1,0 +1,10 @@
+reports/
+.env
+.env.*
+!.env.example
+*.log
+*.tmp
+*.swp
+*.swo
+*.bak
+.DS_Store
