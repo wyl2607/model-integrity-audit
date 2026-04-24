@@ -54,15 +54,19 @@ run_quick() {
   local port="$2"
   local out_dir="$TMP_DIR/out-${mode}"
   local stdout_file="$TMP_DIR/${mode}.stdout"
+  local stderr_file="$TMP_DIR/${mode}.stderr"
   mkdir -p "$out_dir"
-  bash "$ROOT/check-api-quality-and-model-integrity.sh" \
+  if ! bash "$ROOT/check-api-quality-and-model-integrity.sh" \
     --mode quick \
     --relay-base-url "http://127.0.0.1:${port}/v1" \
     --relay-api-key "test_mock_key" \
     --out-dir "$out_dir" \
     --connect-timeout 1 \
     --max-time 2 \
-    --retries 0 >"$stdout_file"
+    --retries 0 >"$stdout_file" 2>"$stderr_file"; then
+    cat "$stderr_file" >&2 || true
+    return 1
+  fi
   awk -F= '/^json_report=/{print $2}' "$stdout_file"
 }
 
