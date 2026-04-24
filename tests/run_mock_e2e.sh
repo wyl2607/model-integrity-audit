@@ -8,6 +8,8 @@ OUT_DIR="${ROOT}/reports/mock-e2e"
 LOG_FILE="$(mktemp)"
 QUICK_STDOUT="$(mktemp)"
 PROBE_STDOUT="$(mktemp)"
+PS_MAIN_HELP="$(mktemp)"
+PS_PROBE_HELP="$(mktemp)"
 SERVER_PID=""
 
 cleanup() {
@@ -15,7 +17,7 @@ cleanup() {
     kill "$SERVER_PID" >/dev/null 2>&1 || true
     wait "$SERVER_PID" >/dev/null 2>&1 || true
   fi
-  rm -f "$LOG_FILE" "$QUICK_STDOUT" "$PROBE_STDOUT"
+  rm -f "$LOG_FILE" "$QUICK_STDOUT" "$PROBE_STDOUT" "$PS_MAIN_HELP" "$PS_PROBE_HELP"
 }
 trap cleanup EXIT
 
@@ -59,13 +61,21 @@ bash "$ROOT/check-api-quality-and-model-integrity.sh" \
   --retries 0 >"$QUICK_STDOUT"
 
 quick_json="$(awk -F= '/^json_report=/{print $2}' "$QUICK_STDOUT")"
+quick_md="${quick_json%.json}.md"
 
+jq -e '.target | type == "object"' "$quick_json" >/dev/null
 jq -e '.target.endpoint == "<redacted-endpoint>"' "$quick_json" >/dev/null
 jq -e '.quick_assessment.controls.invalid_model_rejected == true' "$quick_json" >/dev/null
 jq -e '.quick_assessment.controls.invalid_reasoning_param_checked == true' "$quick_json" >/dev/null
 jq -e '[.quick_assessment.per_model[] | select(.http_code == "200" and .model_echo_ok == true)] | length >= 3' "$quick_json" >/dev/null
+jq -e '.quick_assessment.evidence | type == "array"' "$quick_json" >/dev/null
+jq -e '.quick_assessment.warnings | type == "array"' "$quick_json" >/dev/null
+jq -e '.quick_assessment.failed_controls | type == "array"' "$quick_json" >/dev/null
+jq -e '.quick_assessment.recommendations | type == "array"' "$quick_json" >/dev/null
 jq -e '.quick_assessment.evidence | length >= 4' "$quick_json" >/dev/null
 jq -e '.quick_assessment.recommendations | length >= 1' "$quick_json" >/dev/null
+test -s "$quick_md"
+! rg -q '127\.0\.0\.1|test_mock_key' "$quick_json" "$quick_md"
 
 probe_json="$OUT_DIR/probe.json"
 bash "$ROOT/scripts/probe-gpt55-authenticity.sh" \
@@ -81,7 +91,19 @@ jq -e '.relay.responses_url == "<redacted-endpoint>"' "$probe_json" >/dev/null
 jq -e '.checks.valid_http_ok == true' "$probe_json" >/dev/null
 jq -e '.checks.invalid_param_ok == true' "$probe_json" >/dev/null
 jq -e '.checks.unsupported_model_rejected == true' "$probe_json" >/dev/null
+jq -e '.evidence | type == "array"' "$probe_json" >/dev/null
+jq -e '.warnings | type == "array"' "$probe_json" >/dev/null
+jq -e '.failed_controls | type == "array"' "$probe_json" >/dev/null
+jq -e '.recommendations | type == "array"' "$probe_json" >/dev/null
 jq -e '.evidence | length >= 4' "$probe_json" >/dev/null
 jq -e '.recommendations | length >= 1' "$probe_json" >/dev/null
+! rg -q '127\.0\.0\.1|test_mock_key' "$probe_json"
+
+if command -v pwsh >/dev/null 2>&1; then
+  pwsh -NoProfile -ExecutionPolicy Bypass -File "$ROOT/check-api-quality-and-model-integrity.ps1" --help >"$PS_MAIN_HELP"
+  rg -q 'Run API quality' "$PS_MAIN_HELP"
+  pwsh -NoProfile -ExecutionPolicy Bypass -File "$ROOT/scripts/probe-gpt55-authenticity.ps1" --help >"$PS_PROBE_HELP"
+  rg -q 'Probe whether' "$PS_PROBE_HELP"
+fi
 
 echo "mock-e2e: ok"
