@@ -7,6 +7,9 @@ import time
 
 
 VALID_MODELS = {
+    "gpt-5.6-sol": {"reasoning": 0, "repeat": 9},
+    "gpt-5.6-terra": {"reasoning": 20, "repeat": 12},
+    "gpt-5.6-luna": {"reasoning": 48, "repeat": 17},
     "gpt-5.5": {"reasoning": 0, "repeat": 9},
     "gpt-5.4": {"reasoning": 0, "repeat": 13},
     "gpt-5.4-mini": {"reasoning": 48, "repeat": 17},
@@ -93,7 +96,7 @@ class Handler(BaseHTTPRequestHandler):
         response = {
             "id": f"resp_mock_{int(time.time() * 1000)}",
             "object": "response",
-            "model": "gpt-5.4-mini" if MOCK_MODE == "model_mismatch" else model,
+            "model": "gpt-5.6-luna" if MOCK_MODE == "model_mismatch" else model,
             "output_text": text,
             "usage": {
                 "input_tokens": input_tokens,

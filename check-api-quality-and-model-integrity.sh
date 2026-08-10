@@ -8,9 +8,9 @@ MODE="quick"
 QUICK_TARGET_SECONDS=30
 SAMPLES=3
 REASONING_EFFORT="medium"
-MODELS=("gpt-5.5" "gpt-5.4" "gpt-5.4-mini" "gpt-5.3-codex" "gpt-5.2")
-QUICK_MODELS=("gpt-5.5" "gpt-5.4" "gpt-5.4-mini")
-MODEL_BASELINE="gpt-5.4-mini"
+MODELS=("gpt-5.6-sol" "gpt-5.6-terra" "gpt-5.6-luna" "gpt-5.5" "gpt-5.4" "gpt-5.4-mini" "gpt-5.3-codex" "gpt-5.2")
+QUICK_MODELS=("gpt-5.5" "gpt-5.6-sol" "gpt-5.6-terra" "gpt-5.6-luna")
+MODEL_BASELINE="gpt-5.6-luna"
 CONFIG_FILE="${CODEX_CLI_CONFIG:-$HOME/.codex/config.toml}"
 RELAY_BASE_URL=""
 RELAY_API_KEY=""
@@ -60,8 +60,8 @@ Options:
   --samples <n>             Samples per model in full mode (default: 3)
   --reasoning-effort <lvl>  Reasoning effort for benchmark calls (default: medium)
   --models "<a b c>"        Model list for full mode
-  --quick-models "<a b c>"  Model list for quick mode (default: gpt-5.5 gpt-5.4 gpt-5.4-mini)
-  --baseline <model>        Baseline model for similarity checks (default: gpt-5.4-mini)
+  --quick-models "<a b c>"  Model list for quick mode (default: gpt-5.5 gpt-5.6-sol gpt-5.6-terra gpt-5.6-luna)
+  --baseline <model>        Baseline model for similarity checks (default: gpt-5.6-luna)
   --relay-base-url <url>    Relay base URL (default from ~/.codex/config.toml)
   --relay-api-key <key>     Relay API key (default from ~/.codex/auth.json or OPENAI_API_KEY)
   --config <path>           CLI config path (default: ~/.codex/config.toml)
