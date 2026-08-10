@@ -201,7 +201,7 @@ Berichte redigieren Endpoint-Origins standardmäßig. Für lokale Berichte mit s
 Windows PowerShell:
 
 ```powershell
-.\check-api-quality-and-model-integrity.ps1 --mode full --reasoning-effort medium --samples 5 --baseline gpt-5.4-mini --models "gpt-5.5 gpt-5.4 gpt-5.4-mini gpt-5.3-codex gpt-5.2"
+.\check-api-quality-and-model-integrity.ps1 --mode full --reasoning-effort medium --samples 5 --baseline gpt-5.6-luna --models "gpt-5.6-sol gpt-5.6-terra gpt-5.6-luna gpt-5.5 gpt-5.4 gpt-5.4-mini gpt-5.3-codex gpt-5.2"
 ```
 
 macOS oder Linux:
@@ -211,8 +211,8 @@ macOS oder Linux:
   --mode full \
   --reasoning-effort medium \
   --samples 5 \
-  --baseline gpt-5.4-mini \
-  --models "gpt-5.5 gpt-5.4 gpt-5.4-mini gpt-5.3-codex gpt-5.2"
+  --baseline gpt-5.6-luna \
+  --models "gpt-5.6-sol gpt-5.6-terra gpt-5.6-luna gpt-5.5 gpt-5.4 gpt-5.4-mini gpt-5.3-codex gpt-5.2"
 ```
 
 ## Fokussierte GPT-5.5-Probe
