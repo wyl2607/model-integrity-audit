@@ -338,6 +338,9 @@ if [[ "$MODE" == "quick" ]]; then
     fi
   fi
 
+  # Clamp score to a floor of 0 to prevent negative values
+  if [[ "$score" -lt 0 ]]; then score=0; fi
+
   # cost hint: relative cost proxy via total tokens in same task
   cost_proxy="$(jq -c 'map({model,total_tokens})' <<< "$quick_rows")"
 
